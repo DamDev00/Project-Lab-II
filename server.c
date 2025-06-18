@@ -477,6 +477,11 @@ int handler_queue_emergency(void* args){
         
         emergency_request_t* request = (emergency_request_t*)msg;
 
+        if(strcmp(request->emergency_name, "STOP") == 0){
+            printf("[MESSAGE QUEUE TERMINATA]\n");
+            break;
+        }
+
         char* desc_error = (char*)malloc(sizeof(char)*LENGTH_LINE);
         if(desc_error == NULL){
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
@@ -523,23 +528,6 @@ int print_dt(void* args){
     }
 }
 
-void free_emergency_avalaible(emergency_type_t* emergencies, int num){
-
-    if(emergencies == NULL) return;
-
-    for(int i = 0; num > i; i++){
-        free(emergencies[i].emergency_desc);
-        free(emergencies[i].rescuers);
-        emergencies[i].emergency_desc = NULL;
-        emergencies[i].rescuers = NULL;
-    }
-
-    free(emergencies);
-    printf("[GESTORE DELLA MEMORIA: EMERGENZE DISPONIBILI LIBERATE]\n");
-    return;
-
-}
-
 int main(){
 
     mtx_init(&lock_operation_on_waiting_queue, mtx_plain);
@@ -553,17 +541,17 @@ int main(){
     num_emergency_avalaible = 0;
     emergency_avalaible = parser_emergency(EMERGENCY_FILENAME, &num_emergency_avalaible);
     result_parser_rescuers* rp_rescuers = parse_rescuers(RESCUERS_FILENAME);
-    
+    int num_twins = rp_rescuers->num_twins;
     params_handler_queue_t* params = (params_handler_queue_t*)malloc(sizeof(params_handler_queue_t));
     if(params == NULL) exit(0);
     params->environment = environment;
     params->rp_rescuers = rp_rescuers;
 
-    rescuers_data = (rescuer_data_t*)malloc(sizeof(rescuer_data_t)*rp_rescuers->num_twins);
+    rescuers_data = (rescuer_data_t*)malloc(sizeof(rescuer_data_t)*num_twins);
     if(rescuers_data == NULL) exit(0);
-    thrd_t rescuers_active[rp_rescuers->num_twins];
+    thrd_t rescuers_active[num_twins];
 
-    for(int i = 0; rp_rescuers->num_twins > i; i++){
+    for(int i = 0; num_twins > i; i++){
         rescuers_data[i].twin = rp_rescuers->rd_twins[i];
         mtx_init(&rescuers_data[i].lock, mtx_plain);
         cnd_init(&rescuers_data[i].cnd);
@@ -594,6 +582,9 @@ int main(){
     free_rescuers(rp_rescuers->rescuers_type, rp_rescuers->num_rescuers);
     free_emergency_avalaible(emergency_avalaible, num_emergency_avalaible);
     free_rescuers_digital_twins(rp_rescuers->rd_twins, rp_rescuers->num_twins);
+    free_queue_emergencies(queue_emergencies, id_emergencies);
+    free_rescuers_data(rescuers_data, num_twins);
+    free_waiting_queue(waiting_queue, waiting_queue_len);
 
     return 0;
 }
