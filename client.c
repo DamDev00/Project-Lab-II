@@ -46,10 +46,15 @@ int send_with_parameters(char** parameters){
 }
 
 int send_with_file(char* file_emergency){
-
+    
     char* copy = strdup(file_emergency);
     char* tok = strtok(file_emergency, ".");
+    if(strcmp(copy, tok) == 0){
+        printf("ERRORE NELL'INSERIMETO DEI PARAMETRI\n");
+        return -1;
+    }
     tok = strtok(NULL, " ");
+    
     if(strcmp(tok, "txt") != 0 && strcmp(tok, "conf") != 0){
         printf("il file deve avere estenzione {txt, conf}\n");
         return 0;
@@ -66,7 +71,7 @@ int send_with_file(char* file_emergency){
 
     while(fgets(line, LENGTH_LINE, file)){
 
-         emergency_request_t* msg = (emergency_request_t*)malloc(sizeof(emergency_request_t));
+        emergency_request_t* msg = (emergency_request_t*)malloc(sizeof(emergency_request_t));
 
         if(msg == NULL){
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
@@ -99,6 +104,19 @@ int send_with_file(char* file_emergency){
 }
 
 int main(int argc, char** argv){
+
+    if(strcmp(argv[1], "STOP") == 0){
+        char* stop = "STOP";
+        emergency_request_t* msg = (emergency_request_t*)malloc(sizeof(emergency_request_t));
+        strcpy(msg->emergency_name, stop);
+        msg->x = -1;
+        msg->y = -1;
+        msg->timestamp = 0;
+        if(send_queue(ENVIRONMENT_FILENAME, msg) != 1){
+            printf("errore nell'invio delle emergenze!\n");
+            exit(0);
+        }
+    }
 
     if(argc != 5 && argc != 3){
         printf("errore nell'inserimento dei parametri\n");
