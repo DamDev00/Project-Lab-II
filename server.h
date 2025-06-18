@@ -72,6 +72,7 @@ int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
 int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd);
 int miss_rescuers(emergency_id_t* emergency, int index);
+void free_rescuers_data(rescuer_data_t* rd, int num);
 
 // EMERGENCY
 emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency);
@@ -81,6 +82,7 @@ int handler_queue_emergency(void* args);
 void print_requests_emergencies(emergency_id_t** queue, int num);
 int handler_emergency(void* args);
 void free_emergency_avalaible(emergency_type_t* emergencies, int num);
+void free_queue_emergencies(emergency_id_t** queue_emergencies, int num);
 
 // WAITING QUEUE
 
@@ -90,6 +92,7 @@ int control_waiting_queue(void* args);
 int check_priority_waiting_queue(int current_index, waiting_queue_t*** waiting_queue, int waiting_queue_len, emergency_id_t*** queue_emergencies);
 int handler_waiting_queue(void* args);
 void print_waiting_emergencies(waiting_queue_t** queue, int len);
+void free_waiting_queue(waiting_queue_t** waiting_queue, int num);
 
 // UTILS
 
