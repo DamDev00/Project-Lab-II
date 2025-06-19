@@ -85,9 +85,10 @@ int control_waiting_queue(void* args){
                     strcpy(curr_twin, twin->rescuer->rescuer_type_name);
                     time_t now = time(NULL);
                     if(distance_manhattan(twin->x, current_emergency->emergency->x, twin->y, current_emergency->emergency->y, twin->rescuer->speed) > get_priority_limit(current_emergency->emergency->type->priority) - (now - current_emergency->emergency->time)) {
-                        remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
                         current_emergency->emergency->status = TIMEOUT;
+                        remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
                         printf("[ELIMINATA DALLA CODA D'ATTESA (%d,%s) PER ERRORE DI DISTANZA DI UN SOCCORRITORE]\n",current_emergency->id, current_emergency->emergency->type->emergency_desc);
+                        break;
                     }
                 } 
             }
@@ -142,7 +143,7 @@ int handle_rescuer(void* args){
 
     while(1){
         mtx_lock(&rescuers_data[id].lock);
-
+            rescuers_data[id].is_been_called = false;
             while(rescuers_data[id].twin->status == IDLE){
                 cnd_wait(&rescuers_data[id].cnd, &rescuers_data[id].lock);
                 printf("risvegliato (%d,%s)\n",rescuers_data[id].id_current_emergency,rescuers_data[id].twin->rescuer->rescuer_type_name);
@@ -195,6 +196,11 @@ int handle_rescuer(void* args){
             atomic_fetch_add(&queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished, 1);
             if(queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished == queue_emergencies[rescuers_data[id].id_current_emergency]->tot_rescuers_required){
                 printf("[EMERGENZA: (%d,%s)] TERMINATA\n", queue_emergencies[rescuers_data[id].id_current_emergency]->id, queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->type->emergency_desc);
+                char id_emergency[2];
+                char desc[LENGTH_LINE];
+                snprintf(id_emergency, sizeof(id_emergency), "%d", queue_emergencies[rescuers_data[id].id_current_emergency]->id);
+                snprintf(desc, sizeof(desc), "(%s,%s) da %s a %s", id_emergency, rescuers_data[id].current_emergency, "IN_PROGRESS", "COMPLETED");
+                write_log_file(time(NULL), id_emergency, "Transizione di stato", desc);
                 queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->status = COMPLETED;
             }
             mtx_unlock(&l);
@@ -229,17 +235,55 @@ int handle_rescuer(void* args){
     }
 }
 
+char* get_state_rescuer(rescuer_status_t status){
+    char* result;
+    switch(status){
+        case IDLE: result = "IDLE"; break;
+        case EN_ROUTE_TO_SCENE: result = "EN_ROUTE_TO_SCENE"; break;
+        case ON_SCENE: result = "ON_SCENE"; break;
+        case RETURNING_TO_BASE: result = "RETURNING_TO_BASE"; break;
+    }
+    return result;
+}
+
+int miss_rescuers(emergency_id_t* emergency, int index){
+
+    rescuer_request_t req = emergency->emergency->type->rescuers[index];
+    short int num = 0;
+    for(int i = 0; emergency->num_twins > i; i++){
+        if(!rescuers_data[i].is_been_called && strcmp(req.type->rescuer_type_name, emergency->emergency->rescuers_dt[i]->rescuer->rescuer_type_name) == 0){
+            rescuers_data[i].is_been_called = true;
+            num++;
+        }
+        if(num == req.required_count) break;
+    }
+
+    return (num == req.required_count) ? 0 : num;
+
+}
+
+void free_locks_rescuers(rescuers_t** id_locks, int count){
+
+    for(int i = 0; count > i; i++){
+        rescuers_t* tmp = id_locks[i];
+        for(int j = 0; tmp->avalaible_resc > j; j++) mtx_unlock(&rescuers_data[tmp->id_arr[j]].lock);
+        free(tmp->id_arr);
+        free(tmp);
+    }
+
+    free(id_locks);
+    return;
+
+}
+
 int start_emergency(emergency_id_t* current_emergency){
 
     emergency_t* emergency = current_emergency->emergency;
     current_emergency->in_loading = true;
 
-    int* id_locks = (int*)malloc(sizeof(int)*current_emergency->num_twins);
+    rescuers_t** id_locks = (rescuers_t**)malloc(sizeof(rescuers_t*));
+    int count_id_locks = 0;
     if(id_locks == NULL) exit(0);
-
-    for(int i = 0; current_emergency->num_twins > i; i++){
-        id_locks[i] = -1;
-    }
     
     int tot_request_rescuers = 0;
     for(int i = 0; emergency->type->rescuers_req_number > i; i++){
@@ -248,24 +292,31 @@ int start_emergency(emergency_id_t* current_emergency){
 
     int tot_avalaible_rescuers = 0;
 
-    
-  
     for(int i = 0; emergency->type->rescuers_req_number > i; i++){
         rescuer_request_t req = emergency->type->rescuers[i];
         short int num_request = 0;
-        short int manage = 0;
+        short int count_id_arr = 0;
+        rescuers_t* id_locks_tmp = (rescuers_t*)malloc(sizeof(rescuers_t));
+        if(id_locks_tmp == NULL) exit(0);
+
+        id_locks_tmp->id_arr = (int*)malloc(sizeof(int));
+        if(id_locks_tmp->id_arr == NULL) exit(0);
+        id_locks_tmp->tot_manage = req.required_count * req.time_to_manage;
+
         for(int j = 0; current_emergency->num_twins > j; j++){
-            int miss_rescuers_n = miss_rescuers(current_emergency, i); 
             if(req.type != NULL && strcmp(req.type->rescuer_type_name, emergency->rescuers_dt[j]->rescuer->rescuer_type_name) == 0){
-                manage = req.time_to_manage * req.required_count;
                 if(mtx_trylock(&rescuers_data[emergency->rescuers_dt[j]->id-1].lock) == thrd_success){
                     if(rescuers_data[emergency->rescuers_dt[j]->id-1].twin->status == IDLE){
-                        manage = (miss_rescuers_n > 0) ? manage / miss_rescuers_n : req.time_to_manage;
+                        if(count_id_arr > 0){
+                           int* tmp = realloc(id_locks_tmp->id_arr, sizeof(int)*(count_id_arr+1));
+                           if(tmp == NULL) exit(0);
+                           id_locks_tmp->id_arr = tmp;
+                        }
                         num_request++;
                         tot_avalaible_rescuers++;
-                        printf("manage per %s: %d\n", emergency->rescuers_dt[j]->rescuer->rescuer_type_name, manage);
-                        id_locks[j] = emergency->rescuers_dt[j]->id-1;
-                        rescuers_data[emergency->rescuers_dt[j]->id-1].time_to_manage = manage;
+                        id_locks_tmp->id_arr[count_id_arr] = emergency->rescuers_dt[j]->id-1;
+                        id_locks_tmp->avalaible_resc = num_request;
+                        count_id_arr++;
                     } else mtx_unlock(&rescuers_data[emergency->rescuers_dt[j]->id-1].lock);
                 }
             }
@@ -274,13 +325,8 @@ int start_emergency(emergency_id_t* current_emergency){
         
         if(num_request == 0){
             current_emergency->in_loading = false;
-            for(int k = 0; current_emergency->num_twins > k; k++){
-                if(id_locks[k] != -1) mtx_unlock(&rescuers_data[id_locks[k]].lock);
-                id_locks[k] = -1;
-            }
+            free_locks_rescuers(id_locks, count_id_locks);
             printf("[NON E' STATO POSSIBILE AVVIARE L'EMERGENZA (%d,%s) PER NON DISPONIBILITà DI ALCUNI SOCCORRITORI]\n", current_emergency->id, emergency->type->emergency_desc);
-            free(id_locks);
-            
             if(current_emergency->emergency->status != PAUSED){
                 printf("[EMERGENZA (%d,%s) AGGIUNTA IN CODA D'ATTESA]\n", current_emergency->id, emergency->type->emergency_desc);
                 current_emergency->emergency->status = PAUSED;
@@ -297,51 +343,61 @@ int start_emergency(emergency_id_t* current_emergency){
             }
                 
             return -1;
+
+        } else {
+            if(count_id_locks > 0){
+                rescuers_t** tmp = realloc(id_locks, sizeof(rescuers_t*)*(count_id_locks+1));
+                if(tmp == NULL) exit(0);
+                id_locks = tmp;
+            }
+            id_locks[count_id_locks] = id_locks_tmp;
+            count_id_locks++;
         }
     }
 
     if(current_emergency->was_in_waiting_queue){
+        current_emergency->was_in_waiting_queue = false;
         mtx_lock(&lock_operation_on_waiting_queue);
         remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
         int val;
         sem_getvalue(&sem_waiting_queue,&val);
         if(val == 0 && waiting_queue_len > 0) sem_post(&sem_waiting_queue);
         mtx_unlock(&lock_operation_on_waiting_queue);
-    }    
+    }  
 
-    if(get_priority_limit(emergency->type->priority) != 0){
-        for(int i = 0; current_emergency->num_twins > i; i++){
-            if(id_locks[i] != -1){
-                int id = id_locks[i];
-                if(distance_manhattan(rescuers_data[id].twin->x, emergency->x, rescuers_data[id].twin->y, emergency->y, rescuers_data[id].twin->rescuer->speed) > get_priority_limit(emergency->type->priority) - (time(NULL) - emergency->time)){
-                    printf("[L'EMERGENZA (%d,%s) NON E' STATA ESEGUITA A CAUSA DI DISTANZA/PROPRITA PER IL SOCCORRITORE: %s']\n",current_emergency->id ,emergency->type->emergency_desc, rescuers_data[id].twin->rescuer->rescuer_type_name);
-                    if(emergency->status == PAUSED){
-                        mtx_lock(&lock_operation_on_waiting_queue);
-                        remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
-                        mtx_unlock(&lock_operation_on_waiting_queue);
-                    }
-                    time_t now = time(NULL);
-                    char* desc = "dei soccorritori non fanno in tempo a soddisfare l'emergenza";
-                    write_log_file(now, emergency->type->emergency_desc, EMERGENCY_TIMEOUT, desc);
-                    for(int k = 0; current_emergency->num_twins > k; k++){
-                        if(id_locks[k] != -1) mtx_unlock(&rescuers_data[id_locks[k]].lock);
-                    }
-                    free(id_locks);
-                    emergency->status = TIMEOUT;
-                    return -2;
-                }
-            }
-        }
-    }
-        
     current_emergency->emergency->status = WAITING;
     current_emergency->tot_rescuers_required = tot_avalaible_rescuers;
     current_emergency->rescuers_finished = 0;
         
 
-    for(int i = 0; current_emergency->num_twins > i; i++){
-        if(id_locks[i] != -1){
-            int id = id_locks[i];
+    if(get_priority_limit(emergency->type->priority) != 0){
+        for(int i = 0; count_id_locks > i; i++){
+            rescuers_t* tmp = id_locks[i];
+            for(int j = 0; tmp->avalaible_resc > j; j++){
+                int id = tmp->id_arr[j];
+                if(distance_manhattan(rescuers_data[id].twin->x, emergency->x, rescuers_data[id].twin->y, emergency->y, rescuers_data[id].twin->rescuer->speed) > get_priority_limit(emergency->type->priority) - (time(NULL) - emergency->time)){
+                    printf("[L'EMERGENZA (%d,%s) NON E' STATA ESEGUITA A CAUSA DI DISTANZA/PROPRITA PER IL SOCCORRITORE: %s']\n",current_emergency->id ,emergency->type->emergency_desc, rescuers_data[id].twin->rescuer->rescuer_type_name);
+                    mtx_lock(&lock_operation_on_waiting_queue);
+                    if(emergency->status == PAUSED){
+                        remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
+                    }
+                    mtx_unlock(&lock_operation_on_waiting_queue);
+                    time_t now = time(NULL);
+                    char* desc = "dei soccorritori non fanno in tempo a soddisfare l'emergenza";
+                    write_log_file(now, emergency->type->emergency_desc, EMERGENCY_TIMEOUT, desc);
+                    emergency->status = TIMEOUT;
+                    free_locks_rescuers(id_locks, count_id_locks);
+                    return -2;
+                }
+            }  
+        }
+    }
+
+
+    for(int i = 0; count_id_locks > i; i++){
+        rescuers_t* tmp = id_locks[i];
+        for(int j = 0; tmp->avalaible_resc > j; j++){
+            int id = tmp->id_arr[j];
             rescuers_data[id].current_emergency = (char*)malloc(sizeof(char)*LENGTH_LINE);
             if(rescuers_data[id].current_emergency == NULL){
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
@@ -351,12 +407,18 @@ int start_emergency(emergency_id_t* current_emergency){
             rescuers_data[id].id_current_emergency = current_emergency->id;
             rescuers_data[id].x_emergency = emergency->x;
             rescuers_data[id].y_emergency = emergency->y;
+            rescuers_data[id].time_to_manage = tmp->tot_manage / tmp->avalaible_resc;
             rescuers_data[id].twin->status = EN_ROUTE_TO_SCENE;
             cnd_signal(&rescuers_data[id].cnd);
             mtx_unlock(&rescuers_data[id].lock);
         }
+        free(tmp->id_arr);
+        free(tmp);
     }
+
+    free(id_locks);
     
+
     return thrd_success;
 
 }
@@ -482,18 +544,21 @@ int handler_queue_emergency(void* args){
             break;
         }
 
-        char* desc_error = (char*)malloc(sizeof(char)*LENGTH_LINE);
-        if(desc_error == NULL){
+        char* message = (char*)malloc(sizeof(char)*LENGTH_LINE);
+        if(message == NULL){
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
        
         int index_emergency = -1;
-        if(!is_valid_request(request, params->environment->x, params->environment->y, desc_error, &index_emergency, emergency_avalaible, num_emergency_avalaible)){
+        if(!is_valid_request(request, params->environment->x, params->environment->y, message, &index_emergency, emergency_avalaible, num_emergency_avalaible)){
             printf("richiesta non valida!\n");
-            write_log_file(request->timestamp, request->emergency_name, MESSAGE_QUEUE, desc_error);
+            strcpy(request->emergency_name, "N/A");
+            write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
             continue;
         }
+        snprintf(message, LENGTH_LINE, "[%s (%d,%d) %ld]", request->emergency_name, request->x, request->y, request->timestamp);
+        write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
 
         params_handler_emergency_t* params_handler_emergency = (params_handler_emergency_t*)malloc(sizeof(params_handler_emergency_t));
         if(params_handler_emergency == NULL){
