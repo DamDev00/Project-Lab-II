@@ -88,6 +88,9 @@ int control_waiting_queue(void* args){
                         current_emergency->emergency->status = TIMEOUT;
                         remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
                         printf("[ELIMINATA DALLA CODA D'ATTESA (%d,%s) PER ERRORE DI DISTANZA DI UN SOCCORRITORE]\n",current_emergency->id, current_emergency->emergency->type->emergency_desc);
+                        char id_log[64];
+                        snprintf(id_log, sizeof(id_log), "(%d,%s)", current_emergency->id, current_emergency->emergency->type->emergency_desc);
+                        write_log_file(time(NULL), id_log, EMERGENCY_OPERATION, "emergenza non gestita per la distaza di un soccorritore");
                         break;
                     }
                 } 
@@ -148,6 +151,9 @@ int handle_rescuer(void* args){
                 cnd_wait(&rescuers_data[id].cnd, &rescuers_data[id].lock);
                 printf("risvegliato (%d,%s)\n",rescuers_data[id].id_current_emergency,rescuers_data[id].twin->rescuer->rescuer_type_name);
             }
+            char id_log[64];
+            snprintf(id_log, sizeof(id_log), "(%d,%s)", id+1, rescuers_data[id].twin->rescuer->rescuer_type_name);
+            write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da IDLE a EN_ROUTE_TO_SCENE");
             printf("[SOCCORRITORE:%s;N°:%d] ATTIVATO PER L'EMERGENZA (%d,%s)\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1,rescuers_data[id].id_current_emergency,rescuers_data[id].current_emergency);
             
             //calcolo la distanza 
@@ -186,7 +192,7 @@ int handle_rescuer(void* args){
             barrier_rescuers(queue_emergencies[rescuers_data[id].id_current_emergency],rescuers_finished, tot_rescuers_required, lock, cnd); 
 
             rescuers_data[id].twin->status = ON_SCENE;
-            
+            write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da EN_ROUTE_TO_SCENE a ON_SCENE");
            
             
             printf("[(%s,%d) ARRIVATO, TEMPO PER IL LAVORO RICHIESTO: %d SEC]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1, rescuers_data[id].time_to_manage);
@@ -196,16 +202,15 @@ int handle_rescuer(void* args){
             atomic_fetch_add(&queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished, 1);
             if(queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished == queue_emergencies[rescuers_data[id].id_current_emergency]->tot_rescuers_required){
                 printf("[EMERGENZA: (%d,%s)] TERMINATA\n", queue_emergencies[rescuers_data[id].id_current_emergency]->id, queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->type->emergency_desc);
-                char id_emergency[2];
-                char desc[LENGTH_LINE];
-                snprintf(id_emergency, sizeof(id_emergency), "%d", queue_emergencies[rescuers_data[id].id_current_emergency]->id);
-                snprintf(desc, sizeof(desc), "(%s,%s) da %s a %s", id_emergency, rescuers_data[id].current_emergency, "IN_PROGRESS", "COMPLETED");
-                write_log_file(time(NULL), id_emergency, "Transizione di stato", desc);
                 queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->status = COMPLETED;
+                char id_log[LENGTH_LINE];
+                snprintf(id_log, sizeof(id_log), "(%d,%s)",queue_emergencies[rescuers_data[id].id_current_emergency]->id , rescuers_data[id].current_emergency);
+                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da IN_PROGESS a COMPLETED");
             }
             mtx_unlock(&l);
             
             rescuers_data[id].twin->status = RETURNING_TO_BASE;
+            write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da ON_SCENE a RETURNING_TO_BASE");
             distance = distance_manhattan(to_x, from_x, to_y, from_y, rescuers_data[id].twin->rescuer->speed);
             printf("[(%s,%d) LAVORO TERMINATO, TEMPO: %d SEC PER TORNARE ALLA BASE]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1, distance);
             
@@ -230,6 +235,7 @@ int handle_rescuer(void* args){
             
             printf("[(%s,%d) TORNATO ALLA BASE]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1);
             rescuers_data[id].twin->status = IDLE;
+            write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da RETURNING_TO_BASE a IDLE");
             mtx_unlock(&rescuers_data[id].lock);
 
     }
@@ -244,22 +250,6 @@ char* get_state_rescuer(rescuer_status_t status){
         case RETURNING_TO_BASE: result = "RETURNING_TO_BASE"; break;
     }
     return result;
-}
-
-int miss_rescuers(emergency_id_t* emergency, int index){
-
-    rescuer_request_t req = emergency->emergency->type->rescuers[index];
-    short int num = 0;
-    for(int i = 0; emergency->num_twins > i; i++){
-        if(!rescuers_data[i].is_been_called && strcmp(req.type->rescuer_type_name, emergency->emergency->rescuers_dt[i]->rescuer->rescuer_type_name) == 0){
-            rescuers_data[i].is_been_called = true;
-            num++;
-        }
-        if(num == req.required_count) break;
-    }
-
-    return (num == req.required_count) ? 0 : num;
-
 }
 
 void free_locks_rescuers(rescuers_t** id_locks, int count){
@@ -277,6 +267,9 @@ void free_locks_rescuers(rescuers_t** id_locks, int count){
 }
 
 int start_emergency(emergency_id_t* current_emergency){
+
+    char id_log[256];
+    snprintf(id_log, sizeof(id_log), "(%d,%s)", current_emergency->id, current_emergency->emergency->type->emergency_desc);
 
     emergency_t* emergency = current_emergency->emergency;
     current_emergency->in_loading = true;
@@ -330,6 +323,7 @@ int start_emergency(emergency_id_t* current_emergency){
             if(current_emergency->emergency->status != PAUSED){
                 printf("[EMERGENZA (%d,%s) AGGIUNTA IN CODA D'ATTESA]\n", current_emergency->id, emergency->type->emergency_desc);
                 current_emergency->emergency->status = PAUSED;
+                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da ASSIGNED a PAUSED");
                 current_emergency->was_in_waiting_queue = true;
                 mtx_lock(&lock_operation_on_waiting_queue);
                 add_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
@@ -366,6 +360,7 @@ int start_emergency(emergency_id_t* current_emergency){
     }  
 
     current_emergency->emergency->status = WAITING;
+    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
     current_emergency->tot_rescuers_required = tot_avalaible_rescuers;
     current_emergency->rescuers_finished = 0;
         
@@ -376,17 +371,15 @@ int start_emergency(emergency_id_t* current_emergency){
             for(int j = 0; tmp->avalaible_resc > j; j++){
                 int id = tmp->id_arr[j];
                 if(distance_manhattan(rescuers_data[id].twin->x, emergency->x, rescuers_data[id].twin->y, emergency->y, rescuers_data[id].twin->rescuer->speed) > get_priority_limit(emergency->type->priority) - (time(NULL) - emergency->time)){
+                    free_locks_rescuers(id_locks, count_id_locks);
                     printf("[L'EMERGENZA (%d,%s) NON E' STATA ESEGUITA A CAUSA DI DISTANZA/PROPRITA PER IL SOCCORRITORE: %s']\n",current_emergency->id ,emergency->type->emergency_desc, rescuers_data[id].twin->rescuer->rescuer_type_name);
                     mtx_lock(&lock_operation_on_waiting_queue);
                     if(emergency->status == PAUSED){
                         remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
                     }
                     mtx_unlock(&lock_operation_on_waiting_queue);
-                    time_t now = time(NULL);
-                    char* desc = "dei soccorritori non fanno in tempo a soddisfare l'emergenza";
-                    write_log_file(now, emergency->type->emergency_desc, EMERGENCY_TIMEOUT, desc);
                     emergency->status = TIMEOUT;
-                    free_locks_rescuers(id_locks, count_id_locks);
+                    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
                     return -2;
                 }
             }  
@@ -412,12 +405,20 @@ int start_emergency(emergency_id_t* current_emergency){
             cnd_signal(&rescuers_data[id].cnd);
             mtx_unlock(&rescuers_data[id].lock);
         }
-        free(tmp->id_arr);
-        free(tmp);
     }
 
+    char rescuers[256];
+    for(int i = 0; count_id_locks > i; i++){
+        if(i == 0){ strcpy(rescuers,rescuers_data[id_locks[i]->id_arr[0]].twin->rescuer->rescuer_type_name);}
+        else {
+            strcat(rescuers, ";");
+            strcat(rescuers, rescuers_data[id_locks[i]->id_arr[0]].twin->rescuer->rescuer_type_name);
+        }
+        free(id_locks[i]->id_arr);
+        free(id_locks[i]);
+    }
     free(id_locks);
-    
+    write_log_file(time(NULL), id_log, EMERGENCY_OPERATION, rescuers);
 
     return thrd_success;
 
@@ -435,8 +436,8 @@ int handler_emergency(void* args){
     if(rescuers_avalaible == -1){
         printf("l'emergenza: %s; non è possibile soddisfarla\n", emergency->type->emergency_desc);
         time_t time_now = time(NULL);
-        char* desc_error = "carenza di risorse a disposizione";
-        write_log_file(time_now, emergency->type->emergency_desc, EMERGENCY_CANCELED, desc_error);
+        char* desc_error = "emergenza non gestibile per mancanza di risorse";
+        write_log_file(time_now, emergency->type->emergency_desc, EMERGENCY_STATUS, desc_error);
         emergency->status = CANCELED;
         mtx_lock(&lock_operation_on_queue_emergency);
         add_emergency(&id_emergencies, emergency, &queue_emergencies);
@@ -482,6 +483,11 @@ int handler_emergency(void* args){
     if(rescuers_avalaible == 0){
         current_emergency->miss_rescuers = true;
     } else current_emergency->miss_rescuers = false;
+
+    char id_log[LENGTH_LINE];
+    snprintf(id_log, sizeof(id_log), "(%d,%s) da %s a %s", current_emergency->id, current_emergency->emergency->type->emergency_desc, "WAITING", "IN_PROGRESS");
+    write_log_file(time(NULL),id_log, EMERGENCY_STATUS, "Emergenza passata nello stato ASSIGNED");
+
 
     
     start_emergency(current_emergency);
