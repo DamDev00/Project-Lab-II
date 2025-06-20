@@ -9,10 +9,10 @@
 #define MAX_SIZE 1024
 #define MAX_MSG 10
 
-#define EMERGENCY_INVALID "emergenza non disponibile!"
 #define MESSAGE_QUEUE "message queue"
-#define EMERGENCY_CANCELED "emergenza cancellata"
-#define EMERGENCY_TIMEOUT "problema di distanza"
+#define EMERGENCY_STATUS "EMERGENCY_STATUS"
+#define EMERGENCY_OPERATION "EMERGENCY_OPERATION"
+#define RESCUERS_STATUS "RESCUER_STATUS"
 
 typedef struct {
     env_t* environment;
@@ -30,6 +30,12 @@ typedef struct {
     char* current_emergency;
     bool is_been_called;
 } rescuer_data_t;
+
+typedef struct {
+    int* id_arr;
+    int tot_manage;
+    int avalaible_resc;
+} rescuers_t;
 
 typedef struct {
     int id;
@@ -71,7 +77,6 @@ typedef struct {
 int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
 int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd);
-int miss_rescuers(emergency_id_t* emergency, int index);
 void free_rescuers_data(rescuer_data_t* rd, int num);
 
 // EMERGENCY
