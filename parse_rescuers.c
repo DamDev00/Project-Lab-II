@@ -22,19 +22,19 @@ result_parser_rescuers* parse_rescuers(char* filename){
     time_t now = time(NULL);
     char* id = __FILE__;
     char* event = "FILE_PARSING";
-    char* messaggio;
+    char message[LENGTH_LINE];
     
     FILE* file = fopen(filename, "r");
     
     if(file == NULL){
-        messaggio = "errore nell'apertura del file";
-        write_log_file(now, id, event, messaggio);
+        strcpy(message,"errore nell'apertura del file");
+        write_log_file(now, id, event, message);
         printf("{type error: FILE_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
         exit(FILE_ERROR);
     }
 
-    messaggio = "file aperto correttamente";
-    write_log_file(now, id, event, messaggio);
+    snprintf(message, LENGTH_LINE, "File %s aperto correttamente", filename);
+    write_log_file(now, id, event, message);
 
     rescuer_digital_twin_t** rd_twins = NULL;
     rescuer_type_t** rescuers_type = NULL;
@@ -49,25 +49,24 @@ result_parser_rescuers* parse_rescuers(char* filename){
         char* line_trimmed = trim(line);
         if(line_trimmed[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
         if(strlen(line_trimmed) == 0) break;
-
-        now = time(NULL);
-        messaggio = "nuova riga estratta correttamente";
-        write_log_file(now, id, event, messaggio);
+      
+        snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
+        write_log_file(time(NULL), id, event, message);
 
 
          if(rescuers_type == NULL){
             rescuers_type = (rescuer_type_t**)malloc(sizeof(rescuer_type_t*)*(num_rescuers_type+1));
             if(rescuers_type == NULL){
-                messaggio = "errore nell'allocazione della memoria";
-                write_log_file(now, id, event, messaggio);
+                strcpy(message,"errore nell'allocazione della memoria");
+                write_log_file(now, id, event, message);
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(MALLOC_ERROR);
             }
         } else {
             rescuer_type_t** tmp = realloc(rescuers_type, sizeof(rescuer_type_t*)*(num_rescuers_type+1));
             if(tmp == NULL){
-                messaggio = "errore nell'allocazione della memoria";
-                write_log_file(now, id, event, messaggio);
+                strcpy(message,"errore nell'allocazione della memoria");
+                write_log_file(now, id, event, message);
                 printf("{type error: REALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(REALLOC_ERROR);
             }
@@ -80,8 +79,8 @@ result_parser_rescuers* parse_rescuers(char* filename){
 
         rescuer_type_t* rescuer_type = (rescuer_type_t*)malloc(sizeof(rescuer_type_t));
         if(rescuer_type == NULL){
-            messaggio = "errore nell'allocazione della memoria";
-            write_log_file(now, id, event, messaggio);
+            strcpy(message,"errore nell'allocazione della memoria");
+            write_log_file(now, id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -89,83 +88,56 @@ result_parser_rescuers* parse_rescuers(char* filename){
         rescuer_type->rescuer_type_name = (char*)malloc(sizeof(char)*LENGTH_LINE);
 
         if(rescuer_type->rescuer_type_name == NULL){
-            messaggio = "errore nell'allocazione della memoria";
-            write_log_file(now, id, event, messaggio);
+            strcpy(message,"errore nell'allocazione della memoria");
+            write_log_file(now, id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n", __LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
 
         char* valori_estratti = (char*)malloc(sizeof(char)*LENGTH_LINE);
         if(valori_estratti == NULL){
-            messaggio = "errore nell'allocazione della memoria";
-            write_log_file(now, id, event, messaggio);
+            strcpy(message,"errore nell'allocazione della memoria");
+            write_log_file(now, id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n", __LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
-
-        char* name;
-        char* num_c;
-        char* speed;
-        char* x;
-        char* y;
-        char* delimiter = ",";
 
         for(char* token = strtok(line_trimmed, delimiters); token != NULL; token = strtok(NULL, delimiters), field++){  
             switch(field){
                 case 0: {
                     strcpy(rescuer_type->rescuer_type_name, token); 
-                    name = token;
                 } break;
                 case 1: {
                     num = atoi(token);
-                    num_c = token; 
                 } break;
                 case 2: {
                     rescuer_type->speed = atoi(token); 
-                    speed = token;
                 } break;
                 case 3: {
                     char* t = strtok(token, ";");
-                    x = t;
                     rescuer_type->x = atoi(t);
                     t = strtok(NULL, ";");
-                    y = t;
                     rescuer_type->y = atoi(t);
                     break; 
                 }
             } 
         }
-
-        strcpy(valori_estratti, name);
-        strcat(valori_estratti, delimiter);
-        strcat(valori_estratti, num_c);
-        strcat(valori_estratti, delimiter);
-        strcat(valori_estratti, speed);
-        strcat(valori_estratti, delimiter);
-        strcat(valori_estratti, x);
-        strcat(valori_estratti, delimiter);
-        strcat(valori_estratti, y);
-        
-        now = time(NULL);
-        messaggio = "(valori estratti)";
-        strcat(valori_estratti, messaggio);
-        write_log_file(now, id, event, valori_estratti);
     
 
         if(rd_twins == NULL){
             rd_twins = (rescuer_digital_twin_t**)malloc(sizeof(rescuer_digital_twin_t*)*num);
             if(rd_twins == NULL){
                 now = time(NULL);
-                messaggio = "errore nell'allocazione della memoria";
-                write_log_file(now, id, event, messaggio);
+                strcpy(message,"errore nell'allocazione della memoria");
+                write_log_file(now, id, event, message);
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(MALLOC_ERROR);
             }
         } else {
             rescuer_digital_twin_t** tmp = realloc(rd_twins, sizeof(rescuer_digital_twin_t*)*(num+num_rd_twins));
             if(tmp == NULL){
-                messaggio = "errore nell'allocazione della memoria";
-                write_log_file(now, id, event, messaggio);
+                strcpy(message,"errore nell'allocazione della memoria");
+                write_log_file(now, id, event, message);
                 printf("{type error: REALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(REALLOC_ERROR);
             }
@@ -188,8 +160,8 @@ result_parser_rescuers* parse_rescuers(char* filename){
     
         rescuers_type[num_rescuers_type] = (rescuer_type_t*)malloc(sizeof(rescuer_type_t));
         if(rescuers_type == NULL){
-            messaggio = "errore nell'allocazione della memoria";
-            write_log_file(now, id, event, messaggio);
+            strcpy(message,"errore nell'allocazione della memoria");
+            write_log_file(now, id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -199,18 +171,20 @@ result_parser_rescuers* parse_rescuers(char* filename){
         num_rd_twins += num;
         num_rescuers_type++;
 
-    
-        
     }
-    
+
+    strcpy(message, "Parsing completato");
+    write_log_file(time(NULL), id, event, message);
+
+
     free(line);
     fclose(file);
 
     result_parser_rescuers* result = (result_parser_rescuers*)malloc(sizeof(result_parser_rescuers));
     if(result == NULL){
         now = time(NULL);
-        messaggio = "errore nell'allocazione della memoria";
-        write_log_file(now, id, event, messaggio);
+        strcpy(message,"errore nell'allocazione della memoria");
+        write_log_file(now, id, event, message);
         printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
         exit(MALLOC_ERROR);
     }
