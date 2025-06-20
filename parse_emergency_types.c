@@ -5,10 +5,17 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
 
     result_parser_rescuers* result = parse_rescuers(RESCUERS_FILENAME);
     rescuer_type_t** rescuers = result->rescuers_type;
-    rescuer_digital_twin_t** rd_twins = result->rd_twins;
     int num_rescuers = result->num_rescuers;
-    int num_rd_twins = result->num_twins;
     emergency_type_t* emergency_type = NULL;
+    
+    char* id = __FILE__;
+    char* event = "FILE_PARSING";
+    char message[LENGTH_LINE];
+    if(message == NULL){
+        printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+        exit(MALLOC_ERROR);
+    }
+
     FILE* file = fopen(EMERGENCY_FILENAME, "r");
     
     if(file == NULL){
@@ -16,14 +23,19 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
         exit(FILE_ERROR);
     }
 
-    char* line = (char*)malloc(sizeof(char)*LENGTH_LINE);
+    snprintf(message, LENGTH_LINE, "File %s aperto correttamente", EMERGENCY_FILENAME);
+    write_log_file(time(NULL), id, event, message);
 
+    char* line = (char*)malloc(sizeof(char)*LENGTH_LINE);    
 
     while(fgets(line, LENGTH_LINE, file)){
 
         char* line_trimmed = trim(line);
         if(line[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
         if(strlen(line_trimmed) == 0) break;
+
+        snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
+        write_log_file(time(NULL), id, event, message);
         
         if(emergency_type == NULL){
             emergency_type = (emergency_type_t*)malloc(sizeof(emergency_type_t));
@@ -104,6 +116,9 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
       
     }
 
+    strcpy(message, "Parsing completato");
+    write_log_file(time(NULL), id, event, message);
+
     return emergency_type;
 }
 
@@ -132,4 +147,3 @@ void print_emergencies(emergency_type_t* emergencies, int num){
     return;
 
 }
-
