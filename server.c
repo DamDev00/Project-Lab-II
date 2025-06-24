@@ -13,58 +13,6 @@ mtx_t lock_operation_on_waiting_queue;
 mtx_t lock_operation_on_queue_emergency, l;
 sem_t sem_waiting_queue;
 
-int status_emergency(void* args){
-    emergency_id_t* e = (emergency_id_t*)args;
-    while(e->emergency->status != COMPLETED && e->emergency->status != TIMEOUT){
-        thrd_sleep(&(struct timespec){.tv_sec = 2}, NULL);
-        char* state;
-        switch(e->emergency->status){
-            case WAITING: state = "WAITING"; break;
-            case ASSIGNED: state = "ASSIGNED"; break;
-            case IN_PROGRESS: state = "IN_PROGESS"; break;
-            case PAUSED: state = "PAUSED"; break;
-            case COMPLETED: state = "COMPLETED"; break;
-            case CANCELED: state = "CANCELED"; break;
-            case TIMEOUT: state = "TIMEOUT"; break;
-        }
-        printf("stato (%d,%s): %s\n",e->id, e->emergency->type->emergency_desc ,state);
-    }
-    return 1;
-}
-
-void print_waiting_emergencies(waiting_queue_t** queue, int len){
-
-    if(queue == NULL || !(len > 0)) return;
-    printf("-- lista di emergenze in coda d'attesa --\n");
-    for(int i = 0; len > i; i++){
-        if(queue[i] != NULL){
-            printf("(%d,%s)\n", queue[i]->id,queue[i]->desc);
-        }
-    }
-
-}
-
-void print_requests_emergencies(emergency_id_t** queue, int num){
-
-
-    for(int i = 0; num > i; i++){
-        
-        char* state;
-        switch(queue[i]->emergency->status){
-            case WAITING: state = "WAITING"; break;
-            case ASSIGNED: state = "ASSIGNED"; break;
-            case IN_PROGRESS: state = "IN_PROGESS"; break;
-            case PAUSED: state = "PAUSED"; break;
-            case COMPLETED: state = "COMPLETED"; break;
-            case CANCELED: state = "CANCELED"; break;
-            case TIMEOUT: state = "TIMEOUT"; break;
-        }
-        // DA MIGLIORARE PER L'ORARIO
-        printf("id: %d, emergenza: %s, (x,y) = (%d,%d), status: %s, timestamp: %ld\n",queue[i]->id, queue[i]->emergency->type->emergency_desc,
-        queue[i]->emergency->x, queue[i]->emergency->y, state, queue[i]->emergency->time);
-    }
-
-}
 
 int control_waiting_queue(void* args){
 
@@ -241,17 +189,6 @@ int handle_rescuer(void* args){
     }
 }
 
-char* get_state_rescuer(rescuer_status_t status){
-    char* result;
-    switch(status){
-        case IDLE: result = "IDLE"; break;
-        case EN_ROUTE_TO_SCENE: result = "EN_ROUTE_TO_SCENE"; break;
-        case ON_SCENE: result = "ON_SCENE"; break;
-        case RETURNING_TO_BASE: result = "RETURNING_TO_BASE"; break;
-    }
-    return result;
-}
-
 void free_locks_rescuers(rescuers_t** id_locks, int count){
 
     for(int i = 0; count > i; i++){
@@ -297,6 +234,7 @@ int start_emergency(emergency_id_t* current_emergency){
         id_locks_tmp->tot_manage = req.required_count * req.time_to_manage;
 
         for(int j = 0; current_emergency->num_twins > j; j++){
+            //printf("strcmp(%s, %s) == 0\n", req.type->rescuer_type_name, emergency->rescuers_dt[j]->rescuer->rescuer_type_name);
             if(req.type != NULL && strcmp(req.type->rescuer_type_name, emergency->rescuers_dt[j]->rescuer->rescuer_type_name) == 0){
                 if(mtx_trylock(&rescuers_data[emergency->rescuers_dt[j]->id-1].lock) == thrd_success){
                     if(rescuers_data[emergency->rescuers_dt[j]->id-1].twin->status == IDLE){
@@ -316,7 +254,7 @@ int start_emergency(emergency_id_t* current_emergency){
             if(num_request == req.required_count) break;
         }
         
-        if(num_request == 0){
+        if(!(num_request == req.required_count) && (num_request == 0 || (id_locks_tmp->tot_manage / num_request) > TOLLERANCE)){
             current_emergency->in_loading = false;
             free_locks_rescuers(id_locks, count_id_locks);
             printf("[NON E' STATO POSSIBILE AVVIARE L'EMERGENZA (%d,%s) PER NON DISPONIBILITà DI ALCUNI SOCCORRITORI]\n", current_emergency->id, emergency->type->emergency_desc);
@@ -590,14 +528,6 @@ int handler_queue_emergency(void* args){
     return 1;
 }
 
-int print_dt(void* args){
-    result_parser_rescuers* r = (result_parser_rescuers*)args;
-    while(1){
-        thrd_sleep(&(struct timespec){.tv_sec = 4}, NULL);
-        print_digitals_twins(r->rd_twins, r->num_twins);
-        printf("\n\n");
-    }
-}
 
 int main(){
 
@@ -633,6 +563,7 @@ int main(){
             //ERROR
         }
     }
+
     thrd_create(&handler_queue, handler_queue_emergency, params);
 
     if(thrd_create(&handler_waiting_queue_t, handler_waiting_queue, NULL) == thrd_success){
@@ -656,6 +587,10 @@ int main(){
     free_queue_emergencies(queue_emergencies, id_emergencies);
     free_rescuers_data(rescuers_data, num_twins);
     free_waiting_queue(waiting_queue, waiting_queue_len);
+    free(rp_rescuers);
+    free(params->environment->queue_name);
+    free(params->environment);
+    free(params);
 
     return 0;
 }
