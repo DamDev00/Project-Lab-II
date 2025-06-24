@@ -11,10 +11,6 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
     char* id = __FILE__;
     char* event = "FILE_PARSING";
     char message[LENGTH_LINE];
-    if(message == NULL){
-        printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
-        exit(MALLOC_ERROR);
-    }
 
     FILE* file = fopen(EMERGENCY_FILENAME, "r");
     
@@ -33,6 +29,7 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
         char* line_trimmed = trim(line);
         if(line[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
         if(strlen(line_trimmed) == 0) break;
+        if(format_check_emergency(line_trimmed) == -1) exit(0);
 
         snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
         write_log_file(time(NULL), id, event, message);
@@ -115,6 +112,9 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
        (*num_emergency_type)++;
       
     }
+
+    free(line);
+    fclose(file);
 
     strcpy(message, "Parsing completato");
     write_log_file(time(NULL), id, event, message);
