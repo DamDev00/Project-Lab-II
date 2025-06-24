@@ -8,6 +8,7 @@
 
 #define MAX_SIZE 1024
 #define MAX_MSG 10
+#define TOLLERANCE 20
 
 #define MESSAGE_QUEUE "message queue"
 #define EMERGENCY_STATUS "EMERGENCY_STATUS"
@@ -78,6 +79,9 @@ int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
 int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd);
 void free_rescuers_data(rescuer_data_t* rd, int num);
+char* get_state_rescuer(rescuer_status_t status);
+void free_locks_rescuers(rescuers_t** id_locks, int count);
+int print_dt(void* args);
 
 // EMERGENCY
 emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency);
@@ -88,6 +92,8 @@ void print_requests_emergencies(emergency_id_t** queue, int num);
 int handler_emergency(void* args);
 void free_emergency_avalaible(emergency_type_t* emergencies, int num);
 void free_queue_emergencies(emergency_id_t** queue_emergencies, int num);
+int status_emergency(void* args);
+void print_waiting_emergencies(waiting_queue_t** queue, int len);
 
 // WAITING QUEUE
 
