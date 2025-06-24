@@ -35,6 +35,15 @@ void free_queue_emergencies(emergency_id_t** queue_emergencies, int num){
 
 }
 
+int print_dt(void* args){
+    result_parser_rescuers* r = (result_parser_rescuers*)args;
+    while(1){
+        thrd_sleep(&(struct timespec){.tv_sec = 4}, NULL);
+        print_digitals_twins(r->rd_twins, r->num_twins);
+        printf("\n\n");
+    }
+}
+
 void free_rescuers_data(rescuer_data_t* rd, int num){
 
     if(rd == NULL) return;
@@ -76,6 +85,9 @@ int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot
 		cnd_broadcast(cnd);
 		mtx_unlock(mtx);
         current->emergency->status = IN_PROGRESS;
+        char desc[LENGTH_LINE];
+        snprintf(desc, sizeof(desc), "(%d,%s) da %s a %s", current->id, current->emergency->type->emergency_desc, "WAITING", "IN_PROGRESS");
+        write_log_file(time(NULL), desc, EMERGENCY_STATUS, "Transizione da WAITING a IN_PROGRESS");
 		return 1;
 	} else {
 		cnd_wait(cnd, mtx);
@@ -84,20 +96,7 @@ int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot
 	}
 }
 
-int miss_rescuers(emergency_id_t* emergency, int index){
 
-    rescuer_request_t req = emergency->emergency->type->rescuers[index];
-    short int num = 0;
-    for(int i = 0; emergency->num_twins > i; i++){
-        if(strcmp(req.type->rescuer_type_name, emergency->emergency->rescuers_dt[i]->rescuer->rescuer_type_name) == 0){
-            num++;
-        }
-        if(num == req.required_count) break;
-    }
-
-    return (num == req.required_count) ? 0 : num;
-
-}
 
 int get_priority_limit(int priority){
 
@@ -116,7 +115,9 @@ int get_priority_limit(int priority){
 }
 
 int distance_manhattan(int x1, int x2, int y1, int y2, int speed){
+    
     return (abs(x1 - x2) + abs(y1 - y2)) / speed;
+    
 }
 
 
@@ -298,7 +299,7 @@ emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency){
     emergency->y = y;
 
     emergency->status = ASSIGNED;
-
+    
     return emergency;
 
 }
