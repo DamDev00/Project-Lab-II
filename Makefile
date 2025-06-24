@@ -1,11 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -g -pthread
-OBJ = parse_env.o parse_emergency_types.o parse_rescuers.o utils_server.o functions.o
+OBJ = parse_env.o parse_emergency_types.o parse_rescuers.o debug_server.o utils_server.o functions.o
 
 SERVER_OBJ = server.o $(OBJ) 
 CLIENT_OBJ = client.o $(OBJ)
 
-all: server client
+all: client server
+
 
 client: $(CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o client $(CLIENT_OBJ)
@@ -22,11 +23,14 @@ server.o: server.c server.h
 utils_server.o: utils_server.c server.h
 	$(CC) $(CFLAGS) -c utils_server.c
 
+debug_server.o: debug_server.c server.h
+	$(CC) $(CFLAGS) -c debug_server.c
+
 parse_env.o: parse_env.c parse_env.h 
 	$(CC) $(CFLAGS) -c parse_env.c
 
-parse_emergency_types.o: parse_emergency_types.c parse_emergency_types.h
-	$(CC) $(CFLAGS) -c parse_emergency_types.c
+parse_emergency_types: parse_emergency_types.o functions.o parse_rescuers.o
+	$(CC) $(CFLAGS) -o parse_emergency_types parse_emergency_types.o parse_rescuers.o functions.o
 
 parse_rescuers.o: parse_rescuers.c parse_rescuers.h functions.h
 	$(CC) $(CFLAGS) -c parse_rescuers.c
