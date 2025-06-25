@@ -62,7 +62,6 @@ typedef struct {
     int x;
     int y;
     int index_emergencies;
-    int** field;
     emergency_type_t* emergency_avalaible;
     time_t timestamp;
 } params_handler_emergency_t;
@@ -77,7 +76,7 @@ typedef struct {
 // RESCUER
 int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
-int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd);
+int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd, bool is_active);
 void free_rescuers_data(rescuer_data_t* rd, int num);
 char* get_state_rescuer(rescuer_status_t status);
 void free_locks_rescuers(rescuers_t** id_locks, int count);
