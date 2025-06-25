@@ -2,18 +2,22 @@
 #include <assert.h>
 #include <math.h>
 
-
 bool MESSAGE_QUEUE_ACTIVE = true;
+
 int num_emergency_avalaible;
-int id_emergencies = 0;
-int waiting_queue_len = 0;
 emergency_type_t* emergency_avalaible = NULL;
-emergency_id_t** queue_emergencies = NULL;
-rescuer_data_t* rescuers_data = NULL;
+
+int waiting_queue_len = 0;
 waiting_queue_t** waiting_queue = NULL;
+
+int id_emergencies = 0;
+emergency_id_t** queue_emergencies = NULL;
+
+rescuer_data_t* rescuers_data = NULL;
+
 mtx_t lock_operation_on_waiting_queue;
 mtx_t lock_operation_on_queue_emergency;
-//mtx_t l;
+
 sem_t sem_waiting_queue;
 
 
@@ -548,27 +552,28 @@ int handler_queue_emergency(void* args){
 int main(){
 
     mtx_init(&lock_operation_on_waiting_queue, mtx_plain);
-    mtx_unlock(&lock_operation_on_waiting_queue);
     mtx_init(&lock_operation_on_queue_emergency, mtx_plain);
-    //mtx_init(&l, mtx_plain);
     sem_init(&sem_waiting_queue, 0, 0);
 
     thrd_t handler_queue, handler_waiting_queue_t,a;
+    
     env_t* environment = parser_env(ENVIRONMENT_FILENAME);
+    
     num_emergency_avalaible = 0;
     emergency_avalaible = parser_emergency(EMERGENCY_FILENAME, &num_emergency_avalaible);
     result_parser_rescuers* rp_rescuers = parse_rescuers(RESCUERS_FILENAME);
+    
     int num_twins = rp_rescuers->num_twins;
+    thrd_t rescuers_active[num_twins];
+
     params_handler_queue_t* params = (params_handler_queue_t*)malloc(sizeof(params_handler_queue_t));
     if(params == NULL) exit(0);
+
     params->environment = environment;
     params->rp_rescuers = rp_rescuers;
 
     rescuers_data = (rescuer_data_t*)malloc(sizeof(rescuer_data_t)*num_twins);
     if(rescuers_data == NULL) exit(0);
-    thrd_t rescuers_active[num_twins];
-
-    thrd_create(&handler_queue, handler_queue_emergency, params);
 
     for(int i = 0; num_twins > i; i++){
         rescuers_data[i].twin = rp_rescuers->rd_twins[i];
@@ -584,6 +589,7 @@ int main(){
         //ERROR
     }
 
+    thrd_create(&handler_queue, handler_queue_emergency, params);
     thrd_create(&a, print_dt, rp_rescuers);
     thrd_join(handler_queue, NULL);
     
