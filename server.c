@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <math.h>
 
+
+bool MESSAGE_QUEUE_ACTIVE = true;
 int num_emergency_avalaible;
 int id_emergencies = 0;
 int waiting_queue_len = 0;
@@ -10,7 +12,8 @@ emergency_id_t** queue_emergencies = NULL;
 rescuer_data_t* rescuers_data = NULL;
 waiting_queue_t** waiting_queue = NULL;
 mtx_t lock_operation_on_waiting_queue;
-mtx_t lock_operation_on_queue_emergency, l;
+mtx_t lock_operation_on_queue_emergency;
+//mtx_t l;
 sem_t sem_waiting_queue;
 
 
@@ -20,6 +23,7 @@ int control_waiting_queue(void* args){
     char curr_twin[LENGTH_LINE];
     printf("[ATTIVATA LA FUNZIONE <control_waiting_queue>]\n");
     while(1){
+        if(!MESSAGE_QUEUE_ACTIVE) break;
         thrd_sleep(&(struct timespec){.tv_sec = 2}, NULL);
         printf("[CONTROLLO EMERGENZE IN WAITING_QUEUE]\n");
         mtx_lock(&lock_operation_on_waiting_queue);
@@ -47,6 +51,9 @@ int control_waiting_queue(void* args){
         mtx_unlock(&lock_operation_on_waiting_queue);
     }
 
+    printf("[CONTROL_WAITING_QUEUE TERMINATO]\n");
+    return thrd_success;
+
 }
 
 int handler_waiting_queue(void* args){
@@ -62,6 +69,7 @@ int handler_waiting_queue(void* args){
     }
     while(1){
 
+        if(!MESSAGE_QUEUE_ACTIVE) break;
         printf("[N° ELEMENTI NELLA CODA D'ATTESA: %d]\n", waiting_queue_len);
         sem_wait(&sem_waiting_queue);
         printf("[HANDLER WAITING QUEUE: 1 SECONDO DI ATTESA]\n");
@@ -84,6 +92,9 @@ int handler_waiting_queue(void* args){
         mtx_unlock(&lock_operation_on_waiting_queue);
     }
 
+    printf("[HANDLER WAITING QUEUE TERMINATO]\n");
+    return thrd_success;
+
 }
 
 int handle_rescuer(void* args){
@@ -93,12 +104,15 @@ int handle_rescuer(void* args){
     printf("[SOCCORRITORE: %s;N°:%d] E' STATO ATTIVATO!\n", rescuers_data[id].twin->rescuer->rescuer_type_name, rescuers_data[id].twin->id);
 
     while(1){
+        
+        if(!MESSAGE_QUEUE_ACTIVE) break;
         mtx_lock(&rescuers_data[id].lock);
             rescuers_data[id].is_been_called = false;
             while(rescuers_data[id].twin->status == IDLE){
                 cnd_wait(&rescuers_data[id].cnd, &rescuers_data[id].lock);
-                printf("risvegliato (%d,%s)\n",rescuers_data[id].id_current_emergency,rescuers_data[id].twin->rescuer->rescuer_type_name);
+                printf("risvegliato (%d,%s)\n",rescuers_data[id].twin->id,rescuers_data[id].twin->rescuer->rescuer_type_name);
             }
+            if(!MESSAGE_QUEUE_ACTIVE) break;
             char id_log[64];
             snprintf(id_log, sizeof(id_log), "(%d,%s)", id+1, rescuers_data[id].twin->rescuer->rescuer_type_name);
             write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da IDLE a EN_ROUTE_TO_SCENE");
@@ -116,6 +130,7 @@ int handle_rescuer(void* args){
             while((rescuers_data[id].twin->x != to_x || rescuers_data[id].twin->y != to_y)){
                 int dx = to_x - rescuers_data[id].twin->x;
                 int dy = to_y - rescuers_data[id].twin->y;
+                if(!MESSAGE_QUEUE_ACTIVE) break;
 
                 if(dx != 0){
                     int verse = (dx > 0) ? 1 : -1;
@@ -136,9 +151,9 @@ int handle_rescuer(void* args){
             atomic_int* tot_rescuers_required = &queue_emergencies[rescuers_data[id].id_current_emergency]->tot_rescuers_required;
             mtx_t* lock = &queue_emergencies[rescuers_data[id].id_current_emergency]->lock_emergency;
             cnd_t* cnd = &queue_emergencies[rescuers_data[id].id_current_emergency]->cnd_emergency;
-
-            barrier_rescuers(queue_emergencies[rescuers_data[id].id_current_emergency],rescuers_finished, tot_rescuers_required, lock, cnd); 
-
+           
+            barrier_rescuers(queue_emergencies[rescuers_data[id].id_current_emergency],rescuers_finished, tot_rescuers_required, lock, cnd, MESSAGE_QUEUE_ACTIVE); 
+             if(!MESSAGE_QUEUE_ACTIVE) break;
             rescuers_data[id].twin->status = ON_SCENE;
             write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da EN_ROUTE_TO_SCENE a ON_SCENE");
            
@@ -146,7 +161,6 @@ int handle_rescuer(void* args){
             printf("[(%s,%d) ARRIVATO, TEMPO PER IL LAVORO RICHIESTO: %d SEC]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1, rescuers_data[id].time_to_manage);
             thrd_sleep(&(struct timespec){.tv_sec = rescuers_data[id].time_to_manage}, NULL);
             
-            mtx_lock(&l);
             atomic_fetch_add(&queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished, 1);
             if(queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished == queue_emergencies[rescuers_data[id].id_current_emergency]->tot_rescuers_required){
                 printf("[EMERGENZA: (%d,%s)] TERMINATA\n", queue_emergencies[rescuers_data[id].id_current_emergency]->id, queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->type->emergency_desc);
@@ -155,7 +169,6 @@ int handle_rescuer(void* args){
                 snprintf(id_log, sizeof(id_log), "(%d,%s)",queue_emergencies[rescuers_data[id].id_current_emergency]->id , rescuers_data[id].current_emergency);
                 write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da IN_PROGESS a COMPLETED");
             }
-            mtx_unlock(&l);
             
             rescuers_data[id].twin->status = RETURNING_TO_BASE;
             write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da ON_SCENE a RETURNING_TO_BASE");
@@ -165,6 +178,7 @@ int handle_rescuer(void* args){
             while((rescuers_data[id].twin->x != from_x || rescuers_data[id].twin->y != from_y)){
                 int dx = from_x - rescuers_data[id].twin->x;
                 int dy = from_y - rescuers_data[id].twin->y;
+                if(!MESSAGE_QUEUE_ACTIVE) break;
 
                 if(dx != 0){
                     int verse = (dx > 0) ? 1 : -1;
@@ -185,8 +199,9 @@ int handle_rescuer(void* args){
             rescuers_data[id].twin->status = IDLE;
             write_log_file(time(NULL), id_log, RESCUERS_STATUS, "Transizione da RETURNING_TO_BASE a IDLE");
             mtx_unlock(&rescuers_data[id].lock);
-
     }
+    printf("[RESCUER: (%d,%s) TERMINATO]\n", rescuers_data[id].twin->id+1, rescuers_data[id].twin->rescuer->rescuer_type_name);
+    return thrd_success;
 }
 
 void free_locks_rescuers(rescuers_t** id_locks, int count){
@@ -234,7 +249,6 @@ int start_emergency(emergency_id_t* current_emergency){
         id_locks_tmp->tot_manage = req.required_count * req.time_to_manage;
 
         for(int j = 0; current_emergency->num_twins > j; j++){
-            //printf("strcmp(%s, %s) == 0\n", req.type->rescuer_type_name, emergency->rescuers_dt[j]->rescuer->rescuer_type_name);
             if(req.type != NULL && strcmp(req.type->rescuer_type_name, emergency->rescuers_dt[j]->rescuer->rescuer_type_name) == 0){
                 if(mtx_trylock(&rescuers_data[emergency->rescuers_dt[j]->id-1].lock) == thrd_success){
                     if(rescuers_data[emergency->rescuers_dt[j]->id-1].twin->status == IDLE){
@@ -522,6 +536,8 @@ int handler_queue_emergency(void* args){
         
     }
 
+    MESSAGE_QUEUE_ACTIVE = false;
+
     mq_close(message_queue);
     mq_unlink(mq_name);
 
@@ -534,7 +550,7 @@ int main(){
     mtx_init(&lock_operation_on_waiting_queue, mtx_plain);
     mtx_unlock(&lock_operation_on_waiting_queue);
     mtx_init(&lock_operation_on_queue_emergency, mtx_plain);
-    mtx_init(&l, mtx_plain);
+    //mtx_init(&l, mtx_plain);
     sem_init(&sem_waiting_queue, 0, 0);
 
     thrd_t handler_queue, handler_waiting_queue_t,a;
@@ -552,19 +568,15 @@ int main(){
     if(rescuers_data == NULL) exit(0);
     thrd_t rescuers_active[num_twins];
 
+    thrd_create(&handler_queue, handler_queue_emergency, params);
+
     for(int i = 0; num_twins > i; i++){
         rescuers_data[i].twin = rp_rescuers->rd_twins[i];
         mtx_init(&rescuers_data[i].lock, mtx_plain);
         cnd_init(&rescuers_data[i].cnd);
         rescuers_data[i].time_to_manage = 0;
-        if(thrd_create(&rescuers_active[i], handle_rescuer, &rp_rescuers->rd_twins[i]->id) == thrd_success){
-            thrd_detach(rescuers_active[i]);
-        } else {
-            //ERROR
-        }
+        thrd_create(&rescuers_active[i], handle_rescuer, &rp_rescuers->rd_twins[i]->id);
     }
-
-    thrd_create(&handler_queue, handler_queue_emergency, params);
 
     if(thrd_create(&handler_waiting_queue_t, handler_waiting_queue, NULL) == thrd_success){
         thrd_detach(handler_waiting_queue_t);
@@ -573,24 +585,36 @@ int main(){
     }
 
     thrd_create(&a, print_dt, rp_rescuers);
-    
     thrd_join(handler_queue, NULL);
+    
+    for(int i = 0; num_twins> i; i++){
+        if(rescuers_data[i].twin->status == IDLE){
+            rescuers_data[i].twin->status = EN_ROUTE_TO_SCENE;
+            cnd_signal(&rescuers_data[i].cnd);
+            mtx_unlock(&rescuers_data[i].lock);
+        }
+    }
+
+    for(int i = 0; num_twins> i; i++){
+        thrd_join(rescuers_active[i], NULL);
+    }
     
     mtx_destroy(&lock_operation_on_waiting_queue);
     mtx_destroy(&lock_operation_on_queue_emergency);
     sem_destroy(&sem_waiting_queue);
-    mtx_destroy(&l);
 
     free_rescuers(rp_rescuers->rescuers_type, rp_rescuers->num_rescuers);
     free_emergency_avalaible(emergency_avalaible, num_emergency_avalaible);
     free_rescuers_digital_twins(rp_rescuers->rd_twins, rp_rescuers->num_twins);
     free_queue_emergencies(queue_emergencies, id_emergencies);
-    free_rescuers_data(rescuers_data, num_twins);
     free_waiting_queue(waiting_queue, waiting_queue_len);
+    free_rescuers_data(rescuers_data, num_twins);
     free(rp_rescuers);
     free(params->environment->queue_name);
     free(params->environment);
     free(params);
+
+    
 
     return 0;
 }
