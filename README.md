@@ -6,8 +6,6 @@
 
 - tutte le **typedef struct** richieste le ho messe in un unico file **data_structure.h**. Inoltre ho aggiunto un bel pò di strutture per aiutarmi con gli eventuali output, e funzionamenti del programma, che sono presenti in dei file.h separati.
 
-# Per i tre parser
-
 ## Per ciascun parser
 
 - Inizializzo l'id, l'event, e un array di caratteri utili alla gestione della scrittura nel file .log;
