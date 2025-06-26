@@ -6,3 +6,13 @@
 
 - tutte le **typedef struct** richieste le ho messe in un unico file **data_structure.h**. Inoltre ho aggiunto un bel pò di strutture per aiutarmi con gli eventuali output, e funzionamenti del programma, che sono presenti in dei file.h separati.
 
+# Per i tre parser
+
+## Per ciascun parser
+
+- Inizializzo l'id, l'event, e un array di caratteri utili alla gestione della scrittura nel file .log;
+- Accedo a ciascun file con la **fopen()** verificando sempre se è andata a buon fine;
+- Inizializzo degli array dinamici per la gestione della funzione, aiutandomi con l'eventuale output;
+- Ogni riga del file la ottengo con la **fgets()** dove successivamente elimino gli spazi tra i caratteri della riga, semplificandomi il lavoro con la verifica della sintassi;
+- Ad ogni ciclo utilizzo una **strtok()** con determinati delimitatori;
+- Inifine l'output, in particolare per il **parse_rescuers.c** e **parse_env.c**, hanno un tipo **struct** aggiunto da me per avere a disposizione più di un elemento.
