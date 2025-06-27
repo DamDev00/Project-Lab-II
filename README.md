@@ -14,3 +14,14 @@
 - Ogni riga del file la ottengo con la **fgets()** dove successivamente elimino gli spazi tra i caratteri della riga, semplificandomi il lavoro con la verifica della sintassi;
 - Ad ogni ciclo utilizzo una **strtok()** con determinati delimitatori;
 - Inifine l'output, in particolare per il **parse_rescuers.c** e **parse_env.c**, hanno un tipo **struct** aggiunto da me per avere a disposizione più di un elemento.
+
+# functions.c
+ - Contiene 4 funzioni tra cui:
+   ## char* trim(char* line)
+   - utilizzato per rimuovere gli spazi tra i caratteri semplificando il lavoro per la correzione della sintassi.
+   ## void write_log_file(time_t timestamp, char* id, char* evento, char* desc)
+   - utilizzato da ogni file.c per aggiornare il file.log
+   ## int format_check_rescuers(char* line)
+   - verifico la sintassi della BNF del file **rescuers.conf**
+      ## int format_check_Emergency(char* line)
+   - verifico la sintassi della BNF del file **emergency.conf**
