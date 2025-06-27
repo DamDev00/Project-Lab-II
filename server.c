@@ -132,23 +132,24 @@ int handle_rescuer(void* args){
            
             printf("[(%s, %d) TEMPO STIMATO DI ARRIVO IN SECONDI: %d]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1,distance);
             while((rescuers_data[id].twin->x != to_x || rescuers_data[id].twin->y != to_y)){
+                if(!MESSAGE_QUEUE_ACTIVE) break;
+                thrd_sleep(&(struct timespec){.tv_sec = 1}, NULL);
                 int dx = to_x - rescuers_data[id].twin->x;
                 int dy = to_y - rescuers_data[id].twin->y;
-                if(!MESSAGE_QUEUE_ACTIVE) break;
+                double tot_steps = rescuers_data[id].twin->rescuer->speed;
 
                 if(dx != 0){
                     int verse = (dx > 0) ? 1 : -1;
-                    int step = (abs(dx) < rescuers_data[id].twin->rescuer->speed) ? abs(dx) : rescuers_data[id].twin->rescuer->speed;
-                    rescuers_data[id].twin->x += step * verse;
+                    double step = (abs(dx) < tot_steps) ? abs(dx) : ceil(tot_steps/2);
+                    rescuers_data[id].twin->x +=  step * verse;
+                    tot_steps = tot_steps - ceil(tot_steps/2);
                 }
-
+                
                 if(dy != 0){
                     int verse = (dy > 0) ? 1 : -1;
-                    int step = (abs(dy) < rescuers_data[id].twin->rescuer->speed) ? abs(dy) : rescuers_data[id].twin->rescuer->speed;
-                    rescuers_data[id].twin->y += step * verse;
+                    int step = (abs(dy) < tot_steps) ? abs(dy) : tot_steps;
+                    rescuers_data[id].twin->y +=  step * verse;
                 }
-
-                thrd_sleep(&(struct timespec){.tv_sec = 1}, NULL);
             }
 
             atomic_int* rescuers_finished = &queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished;
@@ -179,25 +180,27 @@ int handle_rescuer(void* args){
             distance = distance_manhattan(to_x, from_x, to_y, from_y, rescuers_data[id].twin->rescuer->speed);
             printf("[(%s,%d) LAVORO TERMINATO, TEMPO: %d SEC PER TORNARE ALLA BASE]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1, distance);
             
-            while((rescuers_data[id].twin->x != from_x || rescuers_data[id].twin->y != from_y)){
-                int dx = from_x - rescuers_data[id].twin->x;
-                int dy = from_y - rescuers_data[id].twin->y;
+            while((rescuers_data[id].twin->x != to_x || rescuers_data[id].twin->y != to_y)){
                 if(!MESSAGE_QUEUE_ACTIVE) break;
+                thrd_sleep(&(struct timespec){.tv_sec = 1}, NULL);
+                int dx = to_x - rescuers_data[id].twin->x;
+                int dy = to_y - rescuers_data[id].twin->y;
+                double tot_steps = rescuers_data[id].twin->rescuer->speed;
 
                 if(dx != 0){
                     int verse = (dx > 0) ? 1 : -1;
-                    int step = (abs(dx) < rescuers_data[id].twin->rescuer->speed) ? abs(dx) : rescuers_data[id].twin->rescuer->speed;
-                    rescuers_data[id].twin->x += step * verse;
+                    double step = (abs(dx) < tot_steps) ? abs(dx) : ceil(tot_steps/2);
+                    rescuers_data[id].twin->x +=  step * verse;
+                    tot_steps = tot_steps - ceil(tot_steps/2);
                 }
-
+                
                 if(dy != 0){
                     int verse = (dy > 0) ? 1 : -1;
-                    int step = (abs(dy) < rescuers_data[id].twin->rescuer->speed) ? abs(dy) : rescuers_data[id].twin->rescuer->speed;
-                    rescuers_data[id].twin->y += step * verse;
+                    int step = (abs(dy) < tot_steps) ? abs(dy) : tot_steps;
+                    rescuers_data[id].twin->y +=  step * verse;
                 }
-
-                thrd_sleep(&(struct timespec){.tv_sec = 1}, NULL);
             }
+
             
             printf("[(%s,%d) TORNATO ALLA BASE]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1);
             rescuers_data[id].twin->status = IDLE;
@@ -519,7 +522,7 @@ int handler_queue_emergency(void* args){
             write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
             continue;
         }
-        snprintf(message, LENGTH_LINE, "[%s (%d,%d) %ld]", request->emergency_name, request->x, request->y, request->timestamp);
+        snprintf(message, LENGTH_LINE, "[%s (%d,%d) %ld]", request->emergency_name, request->x, request->y, request->delay);
         write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
 
         params_handler_emergency_t* params_handler_emergency = (params_handler_emergency_t*)malloc(sizeof(params_handler_emergency_t));
@@ -532,7 +535,7 @@ int handler_queue_emergency(void* args){
         params_handler_emergency->x = request->x;
         params_handler_emergency->y = request->y;
         params_handler_emergency->params = params;
-        params_handler_emergency->timestamp = request->timestamp;
+        params_handler_emergency->timestamp = request->delay;
         
         thrd_t thread_handler_emergency;
 
