@@ -25,3 +25,8 @@
    - verifico la sintassi della BNF del file **rescuers.conf**
    ## int format_check_Emergency(char* line)
    - verifico la sintassi della BNF del file **emergency.conf**
+
+# parse_rescuer.c
+
+ ## rescuer_type_t* find_rescuer(rescuer_type_t** rescuers, char* name, int num_rescuers)
+ - Verifico se, tra i soccorritori disponibili in **rescuers.conf**, esiste un soccorritore utilizzando il parametro **char* name**
