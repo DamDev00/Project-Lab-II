@@ -35,16 +35,6 @@ void free_queue_emergencies(emergency_id_t** queue_emergencies, int num){
 
 }
 
-int print_state_digital_rescuer(void* args){
-    result_parser_rescuers* r = (result_parser_rescuers*)args;
-    while(1){
-        if(!MESSAGE_QUEUE) break;
-        thrd_sleep(&(struct timespec){.tv_sec = 4}, NULL);
-        print_digitals_twins(r->rd_twins, r->num_twins);
-        printf("\n\n");
-    }
-}
-
 void free_rescuers_data(rescuer_data_t* rd, int num){
 
     if(rd == NULL) return;
