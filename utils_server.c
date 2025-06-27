@@ -35,9 +35,10 @@ void free_queue_emergencies(emergency_id_t** queue_emergencies, int num){
 
 }
 
-int print_dt(void* args){
+int print_state_digital_rescuer(void* args){
     result_parser_rescuers* r = (result_parser_rescuers*)args;
     while(1){
+        if(!MESSAGE_QUEUE) break;
         thrd_sleep(&(struct timespec){.tv_sec = 4}, NULL);
         print_digitals_twins(r->rd_twins, r->num_twins);
         printf("\n\n");
@@ -56,6 +57,7 @@ void free_rescuers_data(rescuer_data_t* rd, int num){
     }
 
     free(rd);
+    rd = NULL;
     printf("[GESTORE DELLA MEMORIA: RESCUERS_DATA LIBERATI]\n");
     return;
 }
@@ -75,8 +77,14 @@ void free_waiting_queue(waiting_queue_t** waiting_queue, int num){
 
 }
 
-int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd) {
+int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd, bool is_active) {
 	mtx_lock(mtx);
+
+    if(!is_active){
+        cnd_broadcast(cnd);
+		mtx_unlock(mtx);
+        return 0;
+    }
 
     (*count)++;
 	
