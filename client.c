@@ -103,6 +103,7 @@ int send_with_file(char* file_emergency){
         
 }
 
+
 int main(int argc, char** argv){
 
     if(strcmp(argv[1], "STOP") == 0){
@@ -146,4 +147,3 @@ int main(int argc, char** argv){
 
     return 0;
 }
-    
