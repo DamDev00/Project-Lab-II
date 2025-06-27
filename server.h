@@ -80,7 +80,7 @@ int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot
 void free_rescuers_data(rescuer_data_t* rd, int num);
 char* get_state_rescuer(rescuer_status_t status);
 void free_locks_rescuers(rescuers_t** id_locks, int count);
-int print_dt(void* args);
+int print_state_digital_rescuer(void* args);
 
 // EMERGENCY
 emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency);
