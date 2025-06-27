@@ -90,6 +90,7 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
             exit(MALLOC_ERROR);
         }
         memset(rescuers_request, 0, sizeof(rescuer_request_t)*rescuers_req_number);
+        
         short int count_rescuer_request = 0;
         for(int i = 0; rescuers_req_number > i; i++){
             short int counter = 1;
