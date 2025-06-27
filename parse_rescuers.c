@@ -19,7 +19,6 @@ rescuer_type_t* find_rescuer(rescuer_type_t** rescuers, char* name, int num_resc
 
 result_parser_rescuers* parse_rescuers(char* filename){
 
-    time_t now = time(NULL);
     char* id = __FILE__;
     char* event = "FILE_PARSING";
     char message[LENGTH_LINE];
@@ -28,16 +27,17 @@ result_parser_rescuers* parse_rescuers(char* filename){
     
     if(file == NULL){
         strcpy(message,"errore nell'apertura del file");
-        write_log_file(now, id, event, message);
+        write_log_file(time(NULL), id, event, message);
         printf("{type error: FILE_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
         exit(FILE_ERROR);
     }
 
     snprintf(message, LENGTH_LINE, "File %s aperto correttamente", filename);
-    write_log_file(now, id, event, message);
+    write_log_file(time(NULL), id, event, message);
 
     rescuer_digital_twin_t** rd_twins = NULL;
     rescuer_type_t** rescuers_type = NULL;
+    
     int num_rd_twins = 0;
     int num_rescuers_type = 0;
 
@@ -49,6 +49,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
         char* line_trimmed = trim(line);
         if(line_trimmed[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
         if(strlen(line_trimmed) == 0) break;
+        if(format_check_rescuers(line_trimmed) == -1) exit(0);
       
         snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
         write_log_file(time(NULL), id, event, message);
@@ -58,7 +59,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
             rescuers_type = (rescuer_type_t**)malloc(sizeof(rescuer_type_t*)*(num_rescuers_type+1));
             if(rescuers_type == NULL){
                 strcpy(message,"errore nell'allocazione della memoria");
-                write_log_file(now, id, event, message);
+                write_log_file(time(NULL), id, event, message);
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(MALLOC_ERROR);
             }
@@ -66,7 +67,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
             rescuer_type_t** tmp = realloc(rescuers_type, sizeof(rescuer_type_t*)*(num_rescuers_type+1));
             if(tmp == NULL){
                 strcpy(message,"errore nell'allocazione della memoria");
-                write_log_file(now, id, event, message);
+                write_log_file(time(NULL), id, event, message);
                 printf("{type error: REALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(REALLOC_ERROR);
             }
@@ -80,7 +81,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
         rescuer_type_t* rescuer_type = (rescuer_type_t*)malloc(sizeof(rescuer_type_t));
         if(rescuer_type == NULL){
             strcpy(message,"errore nell'allocazione della memoria");
-            write_log_file(now, id, event, message);
+            write_log_file(time(NULL), id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -89,7 +90,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
 
         if(rescuer_type->rescuer_type_name == NULL){
             strcpy(message,"errore nell'allocazione della memoria");
-            write_log_file(now, id, event, message);
+            write_log_file(time(NULL), id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n", __LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -97,7 +98,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
         char* valori_estratti = (char*)malloc(sizeof(char)*LENGTH_LINE);
         if(valori_estratti == NULL){
             strcpy(message,"errore nell'allocazione della memoria");
-            write_log_file(now, id, event, message);
+            write_log_file(time(NULL), id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n", __LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -127,9 +128,8 @@ result_parser_rescuers* parse_rescuers(char* filename){
         if(rd_twins == NULL){
             rd_twins = (rescuer_digital_twin_t**)malloc(sizeof(rescuer_digital_twin_t*)*num);
             if(rd_twins == NULL){
-                now = time(NULL);
                 strcpy(message,"errore nell'allocazione della memoria");
-                write_log_file(now, id, event, message);
+                write_log_file(time(NULL), id, event, message);
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(MALLOC_ERROR);
             }
@@ -137,7 +137,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
             rescuer_digital_twin_t** tmp = realloc(rd_twins, sizeof(rescuer_digital_twin_t*)*(num+num_rd_twins));
             if(tmp == NULL){
                 strcpy(message,"errore nell'allocazione della memoria");
-                write_log_file(now, id, event, message);
+                write_log_file(time(NULL), id, event, message);
                 printf("{type error: REALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
                 exit(REALLOC_ERROR);
             }
@@ -161,7 +161,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
         rescuers_type[num_rescuers_type] = (rescuer_type_t*)malloc(sizeof(rescuer_type_t));
         if(rescuers_type == NULL){
             strcpy(message,"errore nell'allocazione della memoria");
-            write_log_file(now, id, event, message);
+            write_log_file(time(NULL), id, event, message);
             printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
             exit(MALLOC_ERROR);
         }
@@ -182,9 +182,8 @@ result_parser_rescuers* parse_rescuers(char* filename){
 
     result_parser_rescuers* result = (result_parser_rescuers*)malloc(sizeof(result_parser_rescuers));
     if(result == NULL){
-        now = time(NULL);
         strcpy(message,"errore nell'allocazione della memoria");
-        write_log_file(now, id, event, message);
+        write_log_file(time(NULL), id, event, message);
         printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
         exit(MALLOC_ERROR);
     }
