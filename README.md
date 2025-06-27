@@ -30,3 +30,9 @@
 
  ## rescuer_type_t* find_rescuer(rescuer_type_t** rescuers, char* name, int num_rescuers)
  - Verifico se, tra i soccorritori disponibili in **rescuers.conf**, esiste un soccorritore utilizzando il parametro **char* name**
+ ## void free_rescuers_digital_twins(rescuer_digital_twin_t** rd_twin, int n_twins) e void free_rescuers(rescuer_type_t** rescuers, int num)
+ - Libero dall'heap l'array di gemelli digitali e l'array dei soccorritori disponibili
+## void print_rescuers(rescuer_type_t** rescuers, int num) e void print_digitals_twins(rescuer_digital_twin_t** rd_twins, int num)
+- funzioni che stampano tutti i campi dei soccorritori e dei gemelli digitali
+## result_parser_rescuers* parse_rescuers(char* filename)
+- funzione principale per ottenere i soccorritori, in particolare inserisco in una struttura che ho aggiunto (resul_parser_rescuer) che contiene l'array dei soccorritori e gemelli digitali disponibili con le loro grandezze. 
