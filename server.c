@@ -590,7 +590,7 @@ int main(){
     }
 
     thrd_create(&handler_queue, handler_queue_emergency, params);
-    thrd_create(&a, print_dt, rp_rescuers);
+    thrd_create(&a, print_state_digital_rescuer, rp_rescuers);
     thrd_join(handler_queue, NULL);
     
     for(int i = 0; num_twins> i; i++){
