@@ -23,5 +23,5 @@
    - utilizzato da ogni file.c per aggiornare il file.log
    ## int format_check_rescuers(char* line)
    - verifico la sintassi della BNF del file **rescuers.conf**
-      ## int format_check_Emergency(char* line)
+   ## int format_check_Emergency(char* line)
    - verifico la sintassi della BNF del file **emergency.conf**
