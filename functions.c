@@ -182,3 +182,18 @@ int format_check_emergency(char* line){
 
     return 1;
 }
+
+int digits(int x){
+
+    if(x >= 0 && x <= 9) return 1;
+
+    short int res = 0;
+    
+    while(x > 0){
+        res++;
+        x /= 10;
+    }
+
+    return res;
+
+}
