@@ -180,11 +180,11 @@ int handle_rescuer(void* args){
             distance = distance_manhattan(to_x, from_x, to_y, from_y, rescuers_data[id].twin->rescuer->speed);
             printf("[(%s,%d) LAVORO TERMINATO, TEMPO: %d SEC PER TORNARE ALLA BASE]\n", rescuers_data[id].twin->rescuer->rescuer_type_name, id+1, distance);
             
-            while((rescuers_data[id].twin->x != to_x || rescuers_data[id].twin->y != to_y)){
+            while((rescuers_data[id].twin->x != from_x || rescuers_data[id].twin->y != from_y)){
                 if(!MESSAGE_QUEUE_ACTIVE) break;
                 thrd_sleep(&(struct timespec){.tv_sec = 1}, NULL);
-                int dx = to_x - rescuers_data[id].twin->x;
-                int dy = to_y - rescuers_data[id].twin->y;
+                int dx = from_x - rescuers_data[id].twin->x;
+                int dy = from_y - rescuers_data[id].twin->y;
                 double tot_steps = rescuers_data[id].twin->rescuer->speed;
 
                 if(dx != 0){
