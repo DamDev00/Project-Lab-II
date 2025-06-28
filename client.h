@@ -6,4 +6,3 @@ int send_queue(char* filename, emergency_request_t* msg);
 int send_with_parameters(char** parameters);
 int send_with_file(char* file_emergency);
 void stop_message_queue();
-int digits(int x);
