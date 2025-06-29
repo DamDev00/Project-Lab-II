@@ -165,8 +165,6 @@ int send_with_file(char* file_emergency){
     // Libero la memoria
 
     fclose(file);
-    free(copy);
-    free(tok);
 
     printf("[INVIO DELLE EMERGENZE ANDATA A BUON FINE ATTRAVERSO IL FILE: %s]\n", file_emergency);
     return 1;
@@ -218,7 +216,7 @@ int main(int argc, char** argv){
             while(option < 0 || option > 3){
                 printf("\n[OPZIONE] >: ");
                 scanf("%hd", &option);
-                if(option != 0 && option != 1){
+                if(option < 0 || option > 3){
                     printf("Opzione non esistente!\n");
                 }
             }
