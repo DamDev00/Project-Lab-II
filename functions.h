@@ -25,6 +25,7 @@ void write_log_file(time_t timestamp, char* id, char* evento, char* desc);
 char* trim(char* line);
 int format_check_rescuers(char* line);
 int format_check_emergency(char* line);
+int format_check_env(char* line, char* matricola);
 int digits(int x);
 
 #endif
