@@ -383,10 +383,3 @@ void print_rescuers(rescuer_type_t** rescuers, int num){
     return;
 
 }
-/*
-int main(){
-    result_parser_rescuers* r = parse_rescuers(RESCUERS_FILENAME);
-    print_digitals_twins(r->rd_twins,r->num_twins);
-    printf("num twins: %d, num_resc: %d\n", r->num_twins,r->num_rescuers);
-    print_rescuers(r->rescuers_type, r->num_rescuers);
-}*/
