@@ -39,4 +39,17 @@
 
 # server.c
 
-- Per gestire il server ho aggiunto delle strutture utili per la concorrenza e l'organizzazione del sistema, in particolare per il server servono:
+- Per gestire il server ho aggiunto delle strutture utili per la concorrenza e l'organizzazione del sistema.
+Nel main inizializzo tutto il necessario per il server tra cui: inizializzare le variabili globali; eseguire il parsing dei 3 file passandoli per parametri al thread che gestisce la message queue; mandare in esecuzione un numero di thread pari al numero dei gemelli digitali disponibili che restano in esecuzione fino a quando la message queue è operativa; liberare la memoria dopo l'arresto della message queue.
+- Ho dovuto aggiungere delle strutture utili principalmente per la sincronizzazione e per l'organizzazione dell'intero programma.
+## Descrizione delle struct aggiuntive
+- emergency_id_t: ho voluto creare questa struttura per identificare le emergenze in modo univoco con un intero, creando un array dinamico di questo tipo includendo tutte le emergenze che sono state inviate (VALIDE) per avere una panoramica completa di quello che è successo (potendo vedere quali emergenze sono state soddisfatte e non). Oltre all'id ci sono le variabili: **int num_twins** intero che identifica tutti i gemelli digitali che sono stati salvati nell'array **rescuers_dt** nella variabile di tipo **emergency_t**;
+**bool was_in_waiting_queue** variabile che, inizialmente falsa, mi tiene conto se l'emergenza in questione è passata nella coda di attesa, utile per il debbugging e per la rimozione dalla coda; **bool in_loading** altra booleana utilizzata nella funzione che gestisce la coda d'attesa per verificare che, l'emergenza prelevata dalla coda d'attesa, non sia già in esecuzione; **mtx_t lock_emergency e cnd_t cnd_emergency** servono per la barrier. Dato che nel testo è stato specificato "ovvero avere tutti i mezzi necessari collocati sul luogo dell’emergenza, che a quel punto passa nello stato IN_PROGRESS" ho voluto farsì che un emergenza per essere eseguita, i soccorritori devono cominciare a lavorare insieme e successivamente agiscono indipendentemente per conto loro. Per cui, grazie alla **struct rescuers_data_t** che possiede l'id dell'emergenza da soddisfare, può accedere alla lock e cv, condivisa con altri soccorritori della stessa emergenza, per sincronizzarsi con la barrier; la variabile atomica **rescuers_finished** indica il numero corrente dei soccorritori che sono arrivati alla barrier, mentre **tot_rescuers_finished** indica il numero di soccorritori che devono essere presenti in quell'istante (anche queste due ovviamente servono per la barrier);
+
+- waiting_queue_t: struttura che possiede l'id, priorità e descrizione dell'emergenza che è attualmente in attesa. Il campo fondamentale è l'id per identificare l'emergenza nell'array globale per le emergenze, potendo identificare correttamente l'emergenza che mi serve;
+
+- params_handler_queue_t: struttura che contiene le variabili d'ambiente e l'array dei gemelli digitale e dei soccorritori, che verrà passata al thread che gestisce la message queue;
+
+- rescuer_data_t: struttura da supporto per ogni gemello digitale, contiene: la lock e la cv per la sincronizzazione; le coordinate del punto d'emergenza (x,y); la descrizione dell'emergenza (aggiunta per comodità); il tempo che deve dedicare il soccorritore per il suo lavoro (time_to_manage); id_current_emergency è l'id dell'emergenza di cui si sta occupando, utilissima per poter prelevare informazioni di questa emergenza tramite l'array globale delle emergenze; infine **twin** in cui sono salvate le informazioni del gemello digitale, inizializzate nel main;
+
+- 
