@@ -106,9 +106,9 @@ int control_waiting_queue(void* args){
                         current_emergency->emergency->status = TIMEOUT;
                         remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
                         printf("[ELIMINATA DALLA CODA D'ATTESA (%d,%s) PER ERRORE DI DISTANZA DI UN SOCCORRITORE]\n",current_emergency->id, current_emergency->emergency->type->emergency_desc);
-                        char id_log[64];
+                        char id_log[LENGTH_LINE];
                         snprintf(id_log, sizeof(id_log), "(%d,%s)", current_emergency->id, current_emergency->emergency->type->emergency_desc);
-                        write_log_file(time(NULL), id_log, EMERGENCY_OPERATION, "emergenza non gestita per la distaza di un soccorritore");
+                        write_log_file(time(NULL), id_log, EMERGENCY_OPERATION, "Transizione da PAUSED a TIMEOUT");
                         break;
                     }
                 } 
@@ -418,7 +418,7 @@ int start_emergency(emergency_id_t* current_emergency){
         Inizializz l'array id_log con l'id e la descrizione dell'emergenza
         per il seguito di questa funzione durante le scritture nel file.log
     */
-    char id_log[256];
+    char id_log[LENGTH_LINE];
     snprintf(id_log, sizeof(id_log), "(%d,%s)", current_emergency->id, current_emergency->emergency->type->emergency_desc);
 
     /*
@@ -617,7 +617,7 @@ int start_emergency(emergency_id_t* current_emergency){
 
                 // Riporto la transizione di stato dell'emergenza nel file.log
 
-                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da ASSIGNED a PAUSED");
+                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a PAUSED");
                 
                 // Dico ora che è nella coda d'attesa
                 
@@ -696,8 +696,8 @@ int start_emergency(emergency_id_t* current_emergency){
         modifico lo stato dell'emergenza e lo riporto sul file.log
     */
 
-    current_emergency->emergency->status = WAITING;
-    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
+    current_emergency->emergency->status = ASSIGNED;
+    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a ASSIGNED");
 
     /*
         current_emergency->tot_rescuers_required fondamentale per la barrier nella funzione 
@@ -763,7 +763,7 @@ int start_emergency(emergency_id_t* current_emergency){
                     // modifico lo stato dell'emergenza e lo riporto nel file.log
 
                     emergency->status = TIMEOUT;
-                    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
+                    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da ASSIGNED a TIMEOUT");
                     return -2;
                 }
             }  
@@ -849,6 +849,8 @@ int handler_emergency(void* args){
         per settare l'emergenza
     */
 
+    char id_log[LENGTH_LINE];
+
     params_handler_emergency_t* p = (params_handler_emergency_t*)args;
     rescuer_digital_twin_t** twins = p->params->rp_rescuers->rd_twins;
     int num_twins = p->params->rp_rescuers->num_twins;
@@ -869,9 +871,6 @@ int handler_emergency(void* args){
         /*
             Riporto sul file.log che non è possibile soddisfare l'emergenza
         */
-        printf("l'emergenza: %s; non è possibile soddisfarla\n", emergency->type->emergency_desc);
-        char* desc_error = "emergenza non gestibile per mancanza di risorse";
-        write_log_file(time(NULL), emergency->type->emergency_desc, EMERGENCY_STATUS, desc_error);
 
         // modifico lo stato dell'emergenza
 
@@ -884,6 +883,8 @@ int handler_emergency(void* args){
         
         mtx_lock(&lock_operation_on_queue_emergency);
         add_emergency(&id_emergencies, emergency, &queue_emergencies);
+        snprintf(id_log, sizeof(id_log), "(%d,%s)", id_emergencies, emergency->type->emergency_desc);
+        write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Stato passato da WAITING a CANCELED");
         mtx_unlock(&lock_operation_on_queue_emergency);
         return -1;
 
@@ -896,6 +897,9 @@ int handler_emergency(void* args){
     mtx_lock(&lock_operation_on_queue_emergency);
     emergency_id_t* current_emergency = add_emergency(&id_emergencies, emergency, &queue_emergencies);
     mtx_unlock(&lock_operation_on_queue_emergency);
+
+    snprintf(id_log, sizeof(id_log), "(%d,%s)", current_emergency->id, current_emergency->emergency->type->emergency_desc);
+    write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Stato passato a WAITING");
 
     /*
         Inizializzo altri parametri necessari, della struttura aggiunta, per 
@@ -914,8 +918,7 @@ int handler_emergency(void* args){
     /*
         Riporto nel file.log che l'emergenza corrente è stata assegnata
     */
-
-    char id_log[LENGTH_LINE];
+   
     snprintf(id_log, sizeof(id_log), "(%d,%s) da %s a %s", current_emergency->id, current_emergency->emergency->type->emergency_desc, "WAITING", "IN_PROGRESS");
     write_log_file(time(NULL),id_log, EMERGENCY_STATUS, "Emergenza passata nello stato ASSIGNED");
 
@@ -964,10 +967,9 @@ int handler_queue_emergency(void* args){
         aggiungendo '/' davanti al nome
     */
 
-    char mq_name[LENGTH_LINE];
-    mq_name[0] = '/';
-    strncpy(&mq_name[1], params->environment->queue_name, LENGTH_LINE-2);
-    mq_name[LENGTH_LINE-1] = '\0';
+    char mq_name[strlen(params->environment->queue_name)+1];
+    strcpy(mq_name, "/");
+    strcat(mq_name, params->environment->queue_name);
 
     /*
         Apro la message queue
@@ -996,11 +998,10 @@ int handler_queue_emergency(void* args){
     for(;;){
 
         // In attesa dell'emergenza
-
+        
         size_t bytes_read = mq_receive(message_queue, (char*)msg, MAX_SIZE, NULL);
         
         // Se non ha letto più di 0 byte si arresta per errore
-        
         if(!(bytes_read > 0)){
             perror("mq_receive bytes read");
             exit(0);
@@ -1091,7 +1092,9 @@ int handler_queue_emergency(void* args){
         
         thrd_t thread_handler_emergency;
 
-        thrd_create(&thread_handler_emergency, handler_emergency, params_handler_emergency);
+        if(thrd_create(&thread_handler_emergency, handler_emergency, params_handler_emergency) == thrd_success){
+            thrd_detach(thread_handler_emergency);
+        }
         
     }
 
