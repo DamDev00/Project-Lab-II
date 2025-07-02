@@ -36,3 +36,7 @@
 - funzioni che stampano tutti i campi dei soccorritori e dei gemelli digitali
 ## result_parser_rescuers* parse_rescuers(char* filename)
 - funzione principale per ottenere i soccorritori, in particolare inserisco in una struttura che ho aggiunto (resul_parser_rescuer) che contiene l'array dei soccorritori e gemelli digitali disponibili con le loro grandezze. 
+
+# server.c
+
+- Per gestire il server ho aggiunto delle strutture utili per la concorrenza e l'organizzazione del sistema, in particolare per il server servono:
