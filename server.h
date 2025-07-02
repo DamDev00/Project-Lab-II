@@ -29,7 +29,6 @@ typedef struct {
     mtx_t lock;
     cnd_t cnd;
     char* current_emergency;
-    bool is_been_called;
 } rescuer_data_t;
 
 typedef struct {
@@ -73,6 +72,8 @@ typedef struct {
     waiting_queue_t** waiting_queue;
 } params_control_waiting_queue_t;
 
+extern bool MESSAGE_QUEUE_ACTIVE;
+
 // RESCUER
 int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
@@ -83,15 +84,13 @@ void free_locks_rescuers(rescuers_t** id_locks, int count);
 int print_state_digital_rescuer(void* args);
 
 // EMERGENCY
-emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency);
+emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency, int* twins);
 emergency_id_t* add_emergency(int* id, emergency_t* emergency, emergency_id_t*** queue_emergencies);
 int start_emergency(emergency_id_t* current_emergency);
 int handler_queue_emergency(void* args);
-void print_requests_emergencies(emergency_id_t** queue, int num);
 int handler_emergency(void* args);
 void free_emergency_avalaible(emergency_type_t* emergencies, int num);
 void free_queue_emergencies(emergency_id_t** queue_emergencies, int num);
-int status_emergency(void* args);
 void print_waiting_emergencies(waiting_queue_t** queue, int len);
 
 // WAITING QUEUE
