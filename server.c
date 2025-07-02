@@ -2,6 +2,10 @@
 #include <assert.h>
 #include <math.h>
 
+// inizializzo a NULL la griglia degli id delle emergenze
+
+int** field_emergency = NULL;
+
 // variabile che indica se la message queue è ancora operativa
 
 bool MESSAGE_QUEUE_ACTIVE = true;
@@ -26,12 +30,13 @@ emergency_id_t** queue_emergencies = NULL;
 rescuer_data_t* rescuers_data = NULL;
 
 /*
-    locks che permettono di fare operazioni in modo sicuro nella coda d'attesa e
-    delle emergenze totali. 
+    locks che permettono di fare operazioni in modo sicuro nella coda d'attesa,
+    nell'array delle emergenze totali e sulla griglia 
 */
 
 mtx_t lock_operation_on_waiting_queue;
 mtx_t lock_operation_on_queue_emergency;
+mtx_t lock_field;
 
 // semaforo locale utilizzato per le emergenze in attesa
 
@@ -50,7 +55,7 @@ int control_waiting_queue(void* args){
     char curr_twin[LENGTH_LINE];
     printf("[ATTIVATA LA FUNZIONE <control_waiting_queue>]\n");
 
-    while(1){
+    while(MESSAGE_QUEUE_ACTIVE){
         /*
             faccio un doppio controllo per verificare che la message queue sia
             ancora attiva.
@@ -134,18 +139,17 @@ int handler_waiting_queue(void* args){
         //ERROR
     }
 
-    while(1){
-
-        /*
-            faccio un doppio controllo prima e dopo la sleep per verificare
-            se è terminata la message queue
-        */
-
-        if(!MESSAGE_QUEUE_ACTIVE) break;
+    while(MESSAGE_QUEUE_ACTIVE){
         
         // stampo il numero di elementi nella coda di attesa
         printf("[N° ELEMENTI NELLA CODA D'ATTESA: %d]\n", waiting_queue_len);
         sem_wait(&sem_waiting_queue);
+
+        /*
+            controllo che la message queue sia ancora attiva
+        */
+
+        if(!MESSAGE_QUEUE_ACTIVE) break;
 
         // se il flusso arriva qui significa che c'è almeno un'emergenza in attesa
 
@@ -201,7 +205,7 @@ int handle_rescuer(void* args){
     id--;
     printf("[SOCCORRITORE: %s;N°:%d] E' STATO ATTIVATO!\n", rescuers_data[id].twin->rescuer->rescuer_type_name, rescuers_data[id].twin->id);
 
-    while(1){
+    while(MESSAGE_QUEUE_ACTIVE){
 
         /*
             in questo ciclo viene ripetuto più volte la condizione if(!MESSAGE_QUEUE_ACTIVE) break;
@@ -338,6 +342,9 @@ int handle_rescuer(void* args){
         // Se hanno finito tutti modifico lo stato dell'emergenza e lo riporto ne file.log
         
         if(queue_emergencies[rescuers_data[id].id_current_emergency]->rescuers_finished == queue_emergencies[rescuers_data[id].id_current_emergency]->tot_rescuers_required){
+            mtx_lock(&lock_field);
+            field_emergency[to_x][to_y] = -1;
+            mtx_unlock(&lock_field);
             printf("[EMERGENZA: (%d,%s)] TERMINATA\n", queue_emergencies[rescuers_data[id].id_current_emergency]->id, queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->type->emergency_desc);
             queue_emergencies[rescuers_data[id].id_current_emergency]->emergency->status = COMPLETED;
             char id_log[LENGTH_LINE];
@@ -763,6 +770,12 @@ int start_emergency(emergency_id_t* current_emergency){
         }
     }
 
+    // imposto l'id dell'emergenza nella griglia
+
+    mtx_lock(&lock_field);
+    field_emergency[emergency->x][emergency->y] = current_emergency->id;
+    mtx_unlock(&lock_field);
+
     /*
         Se sono arrivato qui posso avviare l'emergenza
     */
@@ -1043,6 +1056,13 @@ int handler_queue_emergency(void* args){
             continue;
         }
 
+        if(field_emergency[request->x][request->y] != -1){
+            printf("[L'EMERGENZA %s (%d,%d) NON PUO' ESSERE SODDISFATTA PER UN'ALTRA EMERGENZA IN CORSO IN QUELLA POSIZIONE]\n",request->emergency_name, request->x, request->y);
+            snprintf(message, LENGTH_LINE, "[l'emergenza %s (%d,%d) non può essere soddisfatta per un 'altra emergenza in corso in quella posizione]", request->emergency_name, request->x, request->y);
+            write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
+            continue;
+        }
+
         /*
             riporto sul file.log che l'emergenza si può soddisfare
         */
@@ -1097,6 +1117,7 @@ int main(){
     */
 
     mtx_init(&lock_operation_on_waiting_queue, mtx_plain);
+    mtx_init(&lock_field, mtx_plain);
     mtx_init(&lock_operation_on_queue_emergency, mtx_plain);
     sem_init(&sem_waiting_queue, 0, 0);
 
@@ -1114,6 +1135,30 @@ int main(){
     // Ottengo i valori dell'ambiente
     
     env_t* environment = parser_env(ENVIRONMENT_FILENAME);
+
+    // posso a questo punto impostare la griglia
+
+    field_emergency = (int**)malloc(sizeof(int*)*environment->y);
+    if(field_emergency == NULL){
+        printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+        exit(MALLOC_ERROR);
+    }
+
+    /*
+        imposto tutti i valori della griglia a -1 che indica emergenza in quel punto assente
+    */
+
+    for(int i = 0; environment->y > i; i++){
+        field_emergency[i] = (int*)malloc(sizeof(int)*environment->x);
+        if(field_emergency[i] == NULL){
+            printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+            exit(MALLOC_ERROR);
+        }
+        for(int j = 0; environment->x > j; j++){
+            field_emergency[i][j] = -1;
+        }
+    }
+
 
     /*
         Ottengo le emergenze che il programma è in grado di 
@@ -1184,10 +1229,16 @@ int main(){
     }
 
     // avvio il thread che gestisce la message queue
+
     thrd_create(&handler_queue, handler_queue_emergency, params);
 
     // avvio il thread che stampa la situazione dei gemelli digitali (opzionale)
-    thrd_create(&news_on_digital_twins, print_state_digital_rescuer, rp_rescuers);
+
+    if(thrd_create(&news_on_digital_twins, print_state_digital_rescuer, rp_rescuers) == thrd_success){
+        thrd_detach(news_on_digital_twins);
+    } else {
+        //ERROR
+    }
     
     thrd_join(handler_queue, NULL);
 
@@ -1211,12 +1262,23 @@ int main(){
     }
 
     /*
+        controllo che il thread controllore della message queue non sia
+        ancora in attesa del semaforo. Se è in attesa, lo sveglio per far 
+        terminare la funzione
+    */
+
+    int val;
+    sem_getvalue(&sem_waiting_queue, &val);
+    if(val == 0) sem_post(&sem_waiting_queue);
+
+    /*
         distruggo tutte le cv globali con il semaforo e libero
         la memoria completamente
     */
     
     mtx_destroy(&lock_operation_on_waiting_queue);
     mtx_destroy(&lock_operation_on_queue_emergency);
+    mtx_destroy(&lock_field);
     sem_destroy(&sem_waiting_queue);
 
     free_rescuers(rp_rescuers->rescuers_type, rp_rescuers->num_rescuers);
