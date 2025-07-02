@@ -97,9 +97,9 @@ int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot
 		cnd_broadcast(cnd);
 		mtx_unlock(mtx);
         current->emergency->status = IN_PROGRESS;
-        char desc[LENGTH_LINE];
-        snprintf(desc, sizeof(desc), "(%d,%s) da %s a %s", current->id, current->emergency->type->emergency_desc, "WAITING", "IN_PROGRESS");
-        write_log_file(time(NULL), desc, EMERGENCY_STATUS, "Transizione da WAITING a IN_PROGRESS");
+        char id_log[LENGTH_LINE];
+        snprintf(id_log, sizeof(id_log), "(%d,%s)", current->id, current->emergency->type->emergency_desc);
+        write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da ASSIGNED a IN_PROGRESS");
 		return 1;
 	} else {
 		cnd_wait(cnd, mtx);
@@ -419,8 +419,8 @@ emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency, int
         }
     }
 
-    emergency->status = ASSIGNED;
-    
+    emergency->status = WAITING;
+
     return emergency;
 
 }
