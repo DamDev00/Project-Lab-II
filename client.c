@@ -171,6 +171,7 @@ int send_with_file(char* file_emergency){
         
 }
 
+
 int main(int argc, char** argv){
 
     // Modalità 1
@@ -244,7 +245,7 @@ int main(int argc, char** argv){
                 scanf("%s", emergency_or_file);
 
                 if(send_with_file(emergency_or_file) != 1){
-                    //write log
+
                     exit(FILE_ERROR);
                 } 
 
@@ -287,7 +288,6 @@ int main(int argc, char** argv){
             */
 
             if(send_with_file(argv[2]) != 1){
-                //write log
                 exit(FILE_ERROR);
             } 
         }
@@ -298,7 +298,6 @@ int main(int argc, char** argv){
 
         if(send_with_parameters(argv) != 1){
             printf("[ERRORE NELL'INSERIMENTO DEI PARAMETRI]\n");
-            //write log
             exit(0);
         } else { printf("[INVIO DELL'EMERGENZA ANDATA A BUON FINE]\n"); }
 
