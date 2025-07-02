@@ -590,8 +590,15 @@ int start_emergency(emergency_id_t* current_emergency){
             a ciascuno di essi, devono restare per un tot tempo maggiore della tolleranza
         */
         
-        if(!(num_request == req.required_count) && (num_request == 0 || (id_locks_tmp->tot_manage / num_request) > TOLLERANCE)){
+        if((num_request < req.required_count) /*&& (num_request == 0 || (((id_locks_tmp->tot_manage / num_request) > TOLLERANCE) && !current_emergency->miss_rescuers))*/){
             
+            if(((id_locks_tmp->tot_manage / num_request) > TOLLERANCE) && current_emergency->miss_rescuers){
+                printf("[TUTTE LE ISTANZE PER (%d,%s) NON SONO DISPONIBILI PER ED INOLTRE VIENE SUPERATA LA TOLLERANZA]\n",current_emergency->id, emergency->type->emergency_desc);   
+                emergency->status = TIMEOUT;
+                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
+                return -1;    
+            }
+
             // Aggiorno la flag in loading
             
             current_emergency->in_loading = false;
