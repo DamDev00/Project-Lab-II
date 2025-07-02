@@ -1,28 +1,13 @@
 #include "server.h"
 
-int status_emergency(void* args){
-    emergency_id_t* e = (emergency_id_t*)args;
-    while(e->emergency->status != COMPLETED && e->emergency->status != TIMEOUT){
-        thrd_sleep(&(struct timespec){.tv_sec = 2}, NULL);
-        char* state;
-        switch(e->emergency->status){
-            case WAITING: state = "WAITING"; break;
-            case ASSIGNED: state = "ASSIGNED"; break;
-            case IN_PROGRESS: state = "IN_PROGESS"; break;
-            case PAUSED: state = "PAUSED"; break;
-            case COMPLETED: state = "COMPLETED"; break;
-            case CANCELED: state = "CANCELED"; break;
-            case TIMEOUT: state = "TIMEOUT"; break;
-        }
-        printf("stato (%d,%s): %s\n",e->id, e->emergency->type->emergency_desc ,state);
-    }
-    return 1;
-}
-
 void print_waiting_emergencies(waiting_queue_t** queue, int len){
 
+    /*
+        stampo le emergenze in coda di attesa
+    */
+
     if(queue == NULL || !(len > 0)) return;
-    printf("-- lista di emergenze in coda d'attesa --\n");
+    printf("-- LISTA DELLE EMERGENZE IN ATTESA --\n");
     for(int i = 0; len > i; i++){
         if(queue[i] != NULL){
             printf("(%d,%s)\n", queue[i]->id,queue[i]->desc);
@@ -31,29 +16,12 @@ void print_waiting_emergencies(waiting_queue_t** queue, int len){
 
 }
 
-void print_requests_emergencies(emergency_id_t** queue, int num){
-
-
-    for(int i = 0; num > i; i++){
-        
-        char* state;
-        switch(queue[i]->emergency->status){
-            case WAITING: state = "WAITING"; break;
-            case ASSIGNED: state = "ASSIGNED"; break;
-            case IN_PROGRESS: state = "IN_PROGESS"; break;
-            case PAUSED: state = "PAUSED"; break;
-            case COMPLETED: state = "COMPLETED"; break;
-            case CANCELED: state = "CANCELED"; break;
-            case TIMEOUT: state = "TIMEOUT"; break;
-        }
-        // DA MIGLIORARE PER L'ORARIO
-        printf("id: %d, emergenza: %s, (x,y) = (%d,%d), status: %s, timestamp: %ld\n",queue[i]->id, queue[i]->emergency->type->emergency_desc,
-        queue[i]->emergency->x, queue[i]->emergency->y, state, queue[i]->emergency->time);
-    }
-
-}
-
 char* get_state_rescuer(rescuer_status_t status){
+
+    /*
+        restituisce lo stato del soccorritore
+    */
+
     char* result;
     switch(status){
         case IDLE: result = "IDLE"; break;
@@ -65,11 +33,19 @@ char* get_state_rescuer(rescuer_status_t status){
 }
 
 int print_state_digital_rescuer(void* args){
+
+    /*
+        stampa fino a quando è disponibile la coda
+        lo stato dei gemelli digitali
+    */
+
     result_parser_rescuers* r = (result_parser_rescuers*)args;
-    while(1){
-        if(!MESSAGE_QUEUE) break;
+    while(MESSAGE_QUEUE){
         thrd_sleep(&(struct timespec){.tv_sec = 4}, NULL);
+        if(!MESSAGE_QUEUE) break;
         print_digitals_twins(r->rd_twins, r->num_twins);
         printf("\n\n");
     }
+
+    return thrd_success;
 }
