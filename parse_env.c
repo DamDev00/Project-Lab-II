@@ -61,7 +61,7 @@ env_t* parser_env(char* filename){
             riporto sul file.log
         */
 
-        snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line);
+        snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
         write_log_file(time(NULL), id, event, message);
 
         /*
