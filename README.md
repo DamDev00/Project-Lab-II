@@ -6,6 +6,8 @@
 
 - tutte le **typedef struct** richieste le ho messe in un unico file **data_structure.h**. Inoltre ho aggiunto un bel pò di strutture per aiutarmi con gli eventuali output, e funzionamenti del programma, che sono presenti in dei file.h separati.
 
+- La memoria viene liberata in un colpo solo nel server.c, dato che tutti i riferimenti passeranno ad essa.
+
 ## Per ciascun parser
 
 - Inizializzo l'id, l'event, e un array di caratteri utili alla gestione della scrittura nel file .log;
@@ -33,7 +35,7 @@
  ## void free_rescuers_digital_twins(rescuer_digital_twin_t** rd_twin, int n_twins) e void free_rescuers(rescuer_type_t** rescuers, int num)
  - Libero dall'heap l'array di gemelli digitali e l'array dei soccorritori disponibili
 ## void print_rescuers(rescuer_type_t** rescuers, int num) e void print_digitals_twins(rescuer_digital_twin_t** rd_twins, int num)
-- funzioni che stampano tutti i campi dei soccorritori e dei gemelli digitali
+- funzioni che stampano tutti i campi dei soccorritori e dei gemelli digitali. In particolare la funzione che stampa i gemelli digitali viene usata nel server per debbugging tenendo traccia periodicamente dello stato de gemelli digitali, in particolare per la posizione e lo stato.
 ## result_parser_rescuers* parse_rescuers(char* filename)
 - funzione principale per ottenere i soccorritori, in particolare inserisco in una struttura che ho aggiunto (resul_parser_rescuer) che contiene l'array dei soccorritori e gemelli digitali disponibili con le loro grandezze. 
 
@@ -53,6 +55,7 @@
     1) se ci sono 0 istanze disponibili per un soccorritore, oltre ad aggiungere l'emergenza nella coda di attesa, libero le lock che avevo occupato dei gemelli digitali precedenti, evitando cosi il deadlock con altre emergenze a venire;
     2) se per ogni soccorritore necessario esiste c'è almeno un istanza disponibile, allora l'emergenza può essere avviata dopo aver occupato tutti i lock dei gemelli digitali che servono. Se per un determinato tipo di soccorritore ci sono tutte le istanze richieste, allora per ogni gemello, sempre di quel tipo, verrà assegnato un tot tempo pari a quello specificato nel file **emergency.conf**, altrimenti ad ogni gemello di quel tipo verrà aggiunto del tempo in più per coprire il tempo dei soccorritori assenti;
   - per quanto riguarda le emergenze nella coda di attesa, c'è un thread avviato nel main che si occupa di gestire le emergenze in attesa, bloccato inizialmente da un semaforo globale, che può procedere quando c'è almeno un emergenza in attesa. In alcune parti del programma viene fatto un controllo per verificare che continui a sorvegliare la coda d'attesa quando c'è almeno un elemento. Il procedimento viene fatto controllando il valore attuale del counter del semaforo e, se è uguale a 0 mentre c'è almeno un elemento in coda, allora viene portato a 1.
+  - Tutte le operazioni che si fanno sull'array delle emergenze in generale, e sull'array delle emergenze in attesa, vengono fatte in modo sicuro evitando fault e problemi vari per via della protezione da parte di due lock distinte: uno per la coda d'attesa e l'altro per le emergenze globali.
   - Infine, ho voluto creare due funzioni per l'ottimizzazione del sistema, che sono **control_waiting_queue** e **check_priority_waiting_queue** di cui se ne parlerà più avanti.
 
 - Ho dovuto aggiungere delle strutture utili principalmente per la sincronizzazione e per l'organizzazione dell'intero programma.
@@ -66,4 +69,15 @@
 
 - rescuer_data_t: struttura da supporto per ogni gemello digitale, contiene: la lock e la cv per la sincronizzazione; le coordinate del punto d'emergenza (x,y); la descrizione dell'emergenza (aggiunta per comodità); il tempo che deve dedicare il soccorritore per il suo lavoro (time_to_manage); id_current_emergency è l'id dell'emergenza di cui si sta occupando, utilissima per poter prelevare informazioni di questa emergenza tramite l'array globale delle emergenze; infine **twin** in cui sono salvate le informazioni del gemello digitale, inizializzate nel main;
 
-- 
+- params_handler_emergency_t e params_control_waiting_queue_t: strutture d'appoggio per il passaggio dei parametri a due funzioni eseguite da thread.
+
+# client.c
+
+- E' possibile inviare da terminale una singola emergenza o più emergenze contenute in un file di estensione .txt o .conf.
+- Alternativamente, il programma può essere avviato senza alcun tipo di parametro, semplicemente finisce in un ciclo in cui viene fornito un menù che permette di fare le stesse cose che ho citato in precedenza, con la differenza che il client rimane in esecuzione fino a quando non viene digitato un certo valore.
+- E' dal client che è possibile far terminare la message queue.
+
+## Istruzioni
+- Sintassi inviare una singola emergenza da terminale: ./<nome file client> <nome emergenza> <x> <y> <delay>.
+- Sintassi per inviare più emergenze contenute in un file: ./<nome file client> -f <nome file>.{txt o conf}.
+- Se si vuole inviare le emergenze facendo rimanere in esecuzione il client, basta avviare il programma digitando solamente ./<nome file client> seguendo le istruzioni del menù.
