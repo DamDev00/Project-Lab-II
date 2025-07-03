@@ -70,7 +70,7 @@ int control_waiting_queue(void* args){
             faccio quest'operazione solo se c'è più di un elemento nella message queue
         */
 
-        if(waiting_queue_len > 1){
+        if(waiting_queue_len > 0){
 
             for(int i = 0; waiting_queue_len > i; i++){
                 current_emergency = queue_emergencies[waiting_queue[i]->id];
@@ -589,15 +589,24 @@ int start_emergency(emergency_id_t* current_emergency){
             siccome mancano 1 o più istanze di un soccorritore dovendo distribuire più tempo 
             a ciascuno di essi, devono restare per un tot tempo maggiore della tolleranza
         */
-        
-        if((num_request < req.required_count) /*&& (num_request == 0 || (((id_locks_tmp->tot_manage / num_request) > TOLLERANCE) && !current_emergency->miss_rescuers))*/){
-            
-            if(((id_locks_tmp->tot_manage / num_request) > TOLLERANCE) && current_emergency->miss_rescuers){
-                printf("[TUTTE LE ISTANZE PER (%d,%s) NON SONO DISPONIBILI PER ED INOLTRE VIENE SUPERATA LA TOLLERANZA]\n",current_emergency->id, emergency->type->emergency_desc);   
-                emergency->status = TIMEOUT;
-                write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da WAITING a TIMEOUT");
-                return -1;    
+
+        /*
+            Modifico la grandezza dell'id_locks di +1
+        */
+
+        if(count_id_locks > 0){
+            rescuers_t** tmp = realloc(id_locks, sizeof(rescuers_t*)*(count_id_locks+1));
+            if(tmp == NULL){
+                printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+                exit(MALLOC_ERROR);
             }
+            id_locks = tmp;
+        }
+
+        id_locks[count_id_locks] = id_locks_tmp;
+        count_id_locks++;    
+        
+        if(num_request == 0){
 
             // Aggiorno la flag in loading
             
@@ -653,24 +662,7 @@ int start_emergency(emergency_id_t* current_emergency){
                 
             return -1;
 
-        } else {
-
-            /*
-                Modifico la grandezza dell'id_locks di +1
-            */
-
-            if(count_id_locks > 0){
-                rescuers_t** tmp = realloc(id_locks, sizeof(rescuers_t*)*(count_id_locks+1));
-                if(tmp == NULL){
-                    printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
-                    exit(MALLOC_ERROR);
-                }
-                id_locks = tmp;
-            }
-
-            id_locks[count_id_locks] = id_locks_tmp;
-            count_id_locks++;
-        }
+        } 
     }
 
     /*
