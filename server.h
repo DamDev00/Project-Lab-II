@@ -8,7 +8,6 @@
 
 #define MAX_SIZE 1024
 #define MAX_MSG 10
-#define TOLLERANCE 20
 
 #define MESSAGE_QUEUE "message queue"
 #define EMERGENCY_STATUS "EMERGENCY_STATUS"
