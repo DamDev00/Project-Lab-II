@@ -37,7 +37,16 @@
 ## void print_rescuers(rescuer_type_t** rescuers, int num) e void print_digitals_twins(rescuer_digital_twin_t** rd_twins, int num)
 - funzioni che stampano tutti i campi dei soccorritori e dei gemelli digitali. In particolare la funzione che stampa i gemelli digitali viene usata nel server per debbugging tenendo traccia periodicamente dello stato de gemelli digitali, in particolare per la posizione e lo stato.
 ## result_parser_rescuers* parse_rescuers(char* filename)
-- funzione principale per ottenere i soccorritori, in particolare inserisco in una struttura che ho aggiunto (resul_parser_rescuer) che contiene l'array dei soccorritori e gemelli digitali disponibili con le loro grandezze. 
+- funzione principale per ottenere i soccorritori, in particolare inserisco in una struttura che ho aggiunto (resul_parser_rescuer) che contiene l'array dei soccorritori e gemelli digitali disponibili con le loro grandezze.
+
+# parse_emergency_types.c
+
+- emergency_type_t* parser_emergency(char* filename, int* num_emergency_type): esegue il parsing del file **emergency.conf** restituendo un array contenente tutte le emergenze disponibili.
+- void print_emergencies(emergency_type_t* emergencies, int num): stampa l'array delle emergenze disponibili.
+
+# parse_env.c
+
+- env_t* parser_env(char* filename): restituisce un tipo di una struct aggiunta (**env_t**) che contiene il nome della message queue e la grandezza della griglia. Per farsì che il parsing avvenga correttamente, ogni riga del file **env.conf** deve essere del tipo: queue=<string><matricola>, width=<int>, height=<int>. Le chiavi devono essere solamente quelle, come accennato dal testo del progetto.
 
 # server.c
 
@@ -86,6 +95,33 @@
 - file.c pensato per tenere un organizzazione più pulita che contiene delle funzioni necessarie per il funzionamento del server.
 
   ## Funzioni
+  - int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd, bool is_active): barrier che serve per far cominciare a lavorare i gemelli nello stesso momento. Inizialmente, il programma, era implementato in modo che ogni gemello appena arrivato al posto d'emergenza, indipendentemente dagli altri gemelli, iniziava a lavorare, ma siccome nel testo viene accennato che lo stato dell'emergenza passa nello stato IN_PROGRESS nel momento in cui tutti sono collocati nella zona d'emergenza, allora ho implementato questa barrier. Dopo la barrier i gemelli si comportano in modo indipendente.
+  - int get_priority_limit(int priority): restituisce il tempo massimo entro cui bisogna cominciare a gestire l'emergenza in base alla priorità;
+  - int distance_manhattan(int x1, int x2, int y1, int y2, int speed): tempo di arrivo stimato di un soccorritore;
+  - int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc): verifica se sono disponibili i soccorritori per gestire l'emergenza. Può restituire 1,0 e -1 a seconda dei casi:
+    1) (-1) se non esiste nessuna istanza per un determinato tipo di
+          soccorritore, in questo caso l'emergenza va scartata.
+          (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][0][...][...;...])
+
+    2) 0 se esiste almeno un istanza per ogni soccorritore necessario,
+       ma non tutte quelle richieste per uno o più soccorritori
+       (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][2][...][...;...])
+       in questo caso, ai soli
+
+    3) 1 se esistono tutte le istanze richieste per ogni tipo di soccorritore
+       (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][4][...][...;...])
+       in questo caso, ai soli
+  - int compare(const void *a, const void *b): funzione utilizzata per riordinare la coda d'attesa, dopo l'inserimento di una nuova emergenza, in base alla priorità
+  - void add_waiting_queue(emergency_id_t* id, waiting_queue_t*** waiting_queue, int* waiting_queue_len): funzione per aggiungere, in fondo, un emergenza nella coda d'attesa.
+  - void remove_from_waiting_queue(emergency_id_t* emergency, waiting_queue_t*** waiting_queue, int* waiting_queue_len): funzione per rimuovere un'emergenza dalla coda d'attesa.
+  - emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency, int* twins): settaggio dell'emergenza corrente, in particolare imposto il tipo **emergency_t**.
+  - emergency_id_t* add_emergency(int* id, emergency_t* emergency, emergency_id_t*** queue_emergencies): aggiungo un emergenza nell'array delle emergenze totali (valide).
+  - int is_valid_request(emergency_request_t* request, int width, int height, char* problem, int* index_type_emergency, emergency_type_t* emergency_avalaible, int num_emergency_avalaible): verifico che l'emergenza appena arrivata sia valida in termini di posizione e di disponibilità dell'emergenza. Nel caso in cui non sia valida, viene restituito 0 scrivendo il problema nella variabile **char* problem**. Se è valida restituisce 1 impostando il valore dell'indice delle emergenze potendo identificare che tipo di emergenza devo gestire nell'array delle emergenze.
+  - int check_priority_waiting_queue(int current_index, waiting_queue_t*** waiting_queue, int waiting_queue_len, emergency_id_t*** queue_emergencies): questa è un'altra funzione di ottimizzazione (opzionale). Durante l'esecuzione, se ci sono più elementi nella coda d'attesa è probabile che ci siano delle emergenze diverse ma con la stessa priorità che potrebbero essere eseguite. Quindi questa funzione è pensata per visionare delle emergenze diverse in attesa, con la stessa priorità di quella al primo posto, che potrebbero essere avviate restituendo l'indice dell'emergenza nell'array globale. Permette di alleggerire la coda.
+  - Il resto delle funzioni serve per liberare la memoria.
+ 
+# debug_server.c
+- file opzionale che contiene delle funzioni che utilizzo per il debbugging del programma (oltre al file.log). In particolare, contiene una funzione per stampare le emergenze in attesa e un'altra per stampare lo stato attuale dei gemelli digitali, principalmente per tenere traccia della loro posizione e del loro status.
 
 # client.c
 
