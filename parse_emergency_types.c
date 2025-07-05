@@ -4,6 +4,11 @@
 emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
 
     /*
+        int* num_emergency_type rappresenta la lunghezza corrente dell'array
+        delle emergenze disponibili
+    */
+
+    /*
         Prelevo l'array dei soccorritori per un operazione 
         più avanti
     */
@@ -14,6 +19,7 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
     /*
         Array delle emergenze disponibili da soddisfare
     */
+
     emergency_type_t* emergency_type = NULL;
 
     /*
@@ -25,6 +31,8 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
     char* event = "FILE_PARSING";
     char message[LENGTH_LINE];
 
+    // tento di aprire il file
+
     FILE* file = fopen(EMERGENCY_FILENAME, "r");
     
     if(file == NULL){
@@ -32,16 +40,37 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
         exit(FILE_ERROR);
     }
 
+    // riporto sul file.log che il file è stato aperto
+
     snprintf(message, LENGTH_LINE, "File %s aperto correttamente", EMERGENCY_FILENAME);
     write_log_file(time(NULL), id, event, message);
 
-    char* line = (char*)malloc(sizeof(char)*LENGTH_LINE);    
+    char* line = (char*)malloc(sizeof(char)*LENGTH_LINE); 
+    
+    if(line == NULL){
+        printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+        exit(MALLOC_ERROR);
+    }
 
     while(fgets(line, LENGTH_LINE, file)){
 
+        // elimino gli spazi dalla riga prelevata
+
         char* line_trimmed = trim(line);
-        if(line[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
+
+        /* 
+            se l'ultimo carattere è '\n' allora lo sovrascrivo con '\0'.
+            dava fastidio nel file.log
+        */
+
+        if(line_trimmed[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
+        
+        // chiaramente se è vuota mi fermo
+
         if(strlen(line_trimmed) == 0) break;
+        
+        // verifico che la sintassi sia corretta
+
         if(format_check_emergency(line_trimmed) == -1) exit(0);
 
         /*
@@ -97,6 +126,11 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
      
         emergency_type[(*num_emergency_type)].priority = atoi(strtok(NULL, "[]"));
 
+        /*
+            è un array che contiene la lista dei soccorritori necessari
+            per l'emergenza che uso come appoggio successivamente
+        */
+
         char** rescuers_char = (char**)malloc(sizeof(char*)*(LENGTH_LINE+1));
 
         if(rescuers_char == NULL){
@@ -108,10 +142,17 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
             In questo for prelevo la riga <nome soccorritore>:<istanze richieste><tempo dedicato>
             per le operazioni successive
         */
+
         short int rescuers_req_number = 0;
         for(char* v = strtok(NULL, ";"); v != NULL; v = strtok(NULL, ";"), rescuers_req_number++){
             int len = strlen(v);
+
+            // se la stringa è '\0' o '\n' non va bene
+
             if(len <= 1) break;
+
+            // inizializzo l'i-esimo soccorritore con il numero di istanze richieste e il tempo che deve dedicare
+
             rescuers_char[rescuers_req_number] = (char*)malloc(LENGTH_LINE*(sizeof(char)));
             if(rescuers_char[rescuers_req_number] == NULL){
                 printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
@@ -172,8 +213,20 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
                     case 2: rescuers_request[count_rescuer_request].required_count = atoi(token); break;
                     case 3: rescuers_request[count_rescuer_request].time_to_manage = atoi(token); break;
                 }
+                
+                /*
+                    se il soccorritore i-esimo non è presente è inutile che vado ad
+                    inizializzare gli altri campi
+                */
+                
                 if(failed) break;
             }
+
+            /*
+                se il soccorritore non è disponibile nemmeno incremento il counter dell'array,
+                sovrascrivendo l'elemento i-esimo dell'array con il prossimo (se presente)
+            */
+
             if(!failed) count_rescuer_request++;
         }
 
@@ -187,7 +240,7 @@ emergency_type_t* parser_emergency(char* filename, int* num_emergency_type){
       
     }
 
-    // Libero memoria
+    // Libero la memoria
 
     free(line);
     fclose(file);
