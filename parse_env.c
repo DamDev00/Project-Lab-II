@@ -9,15 +9,20 @@ env_t* parser_env(char* filename){
         sul file.log
     */
 
-    FILE* file = fopen(filename, "r");
     char* id = __FILE__;
     char* event = "FILE_PARSING";
     char message[LENGTH_LINE];
+
+    // tento di aprire il file
+
+    FILE* file = fopen(filename, "r");
 
     if(file == NULL){
         printf("{type error: FILE_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
         exit(FILE_ERROR);
     }
+
+    // riporto sul file.log che il file è stato aperto
 
     snprintf(message, LENGTH_LINE, "File %s aperto correttamente", filename);
     write_log_file(time(NULL), id, event, message);
@@ -42,10 +47,19 @@ env_t* parser_env(char* filename){
 
     while(fgets(line, LENGTH_LINE, file)){
 
-        // Elimino tutti gli spazi della riga corrente
+        // elimino gli spazi nella riga prelevata
 
         char* line_trimmed = trim(line);
+
+        /* 
+            se l'ultimo carattere è '\n' allora lo sovrascrivo con '\0'.
+            dava fastidio nel file.log
+        */
+
         if(line_trimmed[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
+       
+        // chiaramente se è vuota mi fermo
+       
         if(strlen(line_trimmed) == 0) break;
 
         /*
