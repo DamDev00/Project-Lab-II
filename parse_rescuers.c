@@ -6,9 +6,9 @@
 rescuer_type_t* find_rescuer(rescuer_type_t** rescuers, char* name, int num_rescuers){
 
     /*
-     Verifico che siano presenti dei soccorritori disponibili
-     e che abbia un nome paragonabile.
-     Se esiste, restituisco direttamente la referenza, altrimenti NULL
+        Verifico se è presente und determinato tipo di soccorritore necessario per una 
+        determinata emergenza. 
+        Viene usata nel parser_emergency_types.c 
     */
     
     if(rescuers == NULL || strlen(name) == 0 || !(num_rescuers > 0)) return NULL;
@@ -33,6 +33,8 @@ result_parser_rescuers* parse_rescuers(char* filename){
     char* id = __FILE__;
     char* event = "FILE_PARSING";
     char message[LENGTH_LINE];
+
+    // tento di aprire il file
     
     FILE* file = fopen(filename, "r");
     
@@ -44,9 +46,7 @@ result_parser_rescuers* parse_rescuers(char* filename){
     }
 
     /*
-        Ad ogni punto del programma in cui scrive nel file.log
-        viene sovrascritto l'array di carratteri 'message' in base
-        al tipo di evento/operazione
+        Riporto sul file.log che il file è stato aperto
     */
 
     snprintf(message, LENGTH_LINE, "File %s aperto correttamente", filename);
@@ -64,6 +64,10 @@ result_parser_rescuers* parse_rescuers(char* filename){
     int num_rescuers_type = 0;
 
     char* line = (char*)malloc(sizeof(char)*LENGTH_LINE);
+    if(line == NULL){
+        printf("{type error: MALLOC_ERROR; line: %d; file: %s}\n",__LINE__,__FILE__);
+        exit(MALLOC_ERROR);
+    }
     short int id_twins = 1;
 
     /*
@@ -79,16 +83,25 @@ result_parser_rescuers* parse_rescuers(char* filename){
 
     while (fgets(line, LENGTH_LINE, file)) {
 
+        // elimino gli spazi dalla riga prelevata
         char* line_trimmed = trim(line);
+
+        /* 
+            se l'ultimo carattere è '\n' allora lo sovrascrivo con '\0'.
+            dava fastidio nel file.log
+        */
         if(line_trimmed[strlen(line_trimmed)-1]=='\n') line_trimmed[strlen(line_trimmed)-1] = '\0';
+        
+        // chiaramente se è vuota mi fermo
+
         if(strlen(line_trimmed) == 0) break;
+        
+        // verifico che la sintassi sia corretta
+
         if(format_check_rescuers(line_trimmed) == -1) exit(0);
 
         /*
-            Prelevo una nuova riga, controllando che non sia vuota e
-            verificando che abbia la sintassi corretta.
-            successivamente riporto sul file.log che è stata
-            estratta una nuova riga correttamente
+            riporto sul file.log che è stata estratta una nuova riga 
         */
       
         snprintf(message, LENGTH_LINE, "Nuova riga estratta %s", line_trimmed);
@@ -298,6 +311,11 @@ void free_rescuers_digital_twins(rescuer_digital_twin_t** rd_twin, int n_twins){
 
     if(rd_twin == NULL || !(n_twins > 0)) return;
 
+    /*
+        libero uno alla volta ogni gemello digitale, inizializzando a NULL
+        il riferimento 
+    */
+
     for(int i = 0; n_twins > i; i++){
         free(rd_twin[i]);      
         rd_twin[i] = NULL; 
@@ -315,6 +333,11 @@ void free_rescuers(rescuer_type_t** rescuers, int num){
     */
 
     if(rescuers == NULL || !(num > 0)) return;
+
+    /*
+        libero uno alla volta ogni tipo di soccorritore, inizializzando a NULL
+        il riferimento 
+    */
 
     for(int i = 0; num > i; i++){
         if(rescuers[i] != NULL){
@@ -342,19 +365,23 @@ void print_digitals_twins(rescuer_digital_twin_t** rd_twins, int num){
         return;
     }
 
-    // Per ogni iterazione stampo ogni campo
+    /*
+        stampa il valore dei campi di tutti i gemelli digitali
+    */
 
     for(int i = 0; num > i; i++){
-        char* state;
-        switch(rd_twins[i]->status){
-            case IDLE: state = "IDLE"; break;
-            case EN_ROUTE_TO_SCENE: state = "EN_ROUTE_TO_SCENE"; break;
-            case ON_SCENE: state = "ON_SCENE"; break;
-            case RETURNING_TO_BASE: state = "RETURNING_TO_BASE"; break;
+        if(rd_twins[i] != NULL){
+            char* state;
+            switch(rd_twins[i]->status){
+                case IDLE: state = "IDLE"; break;
+                case EN_ROUTE_TO_SCENE: state = "EN_ROUTE_TO_SCENE"; break;
+                case ON_SCENE: state = "ON_SCENE"; break;
+                case RETURNING_TO_BASE: state = "RETURNING_TO_BASE"; break;
+            }
+            printf("id: %d, soccorritore: %s, posizione: (%d,%d), velocità: %d, stato: %s\n",
+            rd_twins[i]->id, rd_twins[i]->rescuer->rescuer_type_name, rd_twins[i]->x,
+            rd_twins[i]->y, rd_twins[i]->rescuer->speed, state);
         }
-        printf("id: %d, soccorritore: %s, posizione: (%d,%d), velocità: %d, stato: %s\n",
-        rd_twins[i]->id, rd_twins[i]->rescuer->rescuer_type_name, rd_twins[i]->x,
-        rd_twins[i]->y, rd_twins[i]->rescuer->speed, state);
     }
 
     return;
