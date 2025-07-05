@@ -1,5 +1,7 @@
 #include "parse_emergency_types.h"
 
+// struttura aggiuntiva per il tipo di ritorno del parser_env
+
 typedef struct {
     char* queue_name;
     int x;
