@@ -874,11 +874,9 @@ int handler_emergency(void* args){
         - 0 se esiste almeno un istanza per ogni soccorritore necessario,
            ma non tutte quelle richieste per uno o più soccorritori
            (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][2][...][...;...])
-           in questo caso, ai soli
 
         - 1 se esistono tutte le istanze richieste per ogni tipo di soccorritore
             (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][4][...][...;...])
-            in questo caso, ai soli 
     */
     
     int rescuers_avalaible = rescuers_is_avalaible(twins, num_twins, emergency->type->rescuers, emergency->type->rescuers_req_number, emergency->type->emergency_desc);
