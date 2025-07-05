@@ -3,6 +3,8 @@
 #ifndef PARSE_RESCUERS_H
 #define PARSE_RESCUERS_H
 
+// struttura aggiuntiva per l'output del parser_rescuer
+
 typedef struct {
     rescuer_digital_twin_t** rd_twins;
     rescuer_type_t** rescuers_type;
