@@ -19,6 +19,10 @@ int send_queue(char* filename,  emergency_request_t* msg){
 
     strcpy(mq_name, "/");
     strcat(mq_name, env->queue_name);
+
+    /*
+        inizializzo la message queue in modalità solo scrittura
+    */
     
     mqd_t mq;
 
@@ -186,6 +190,11 @@ int main(int argc, char** argv){
         */
 
         env_t* env = parser_env(ENVIRONMENT_FILENAME);
+
+        /*
+            con digits capisco di quanto devo far grande l'array di caratteri
+            in base alle coordinate
+        */
 
         char x[digits(env->x)];
         char y[digits(env->y)];
