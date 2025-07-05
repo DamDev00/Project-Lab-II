@@ -102,6 +102,12 @@ int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot
         write_log_file(time(NULL), id_log, EMERGENCY_STATUS, "Transizione da ASSIGNED a IN_PROGRESS");
 		return 1;
 	} else {
+
+        /*
+            se il soccorritore corrente arriva qui significa che devono
+            arrivare altri
+        */
+
 		cnd_wait(cnd, mtx);
 		mtx_unlock(mtx);
 		return 0;
@@ -136,11 +142,19 @@ int distance_manhattan(int x1, int x2, int y1, int y2, int speed){
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc){
 
     /*
-        verifico che tutti i tipi di soccorritori richiesti per l'emergenza ci siano
+        verifico che tutti i tipi di soccorritori richiesti per l'emergenza ci siano.
+        Se ci sono 0 istanze di un soccorritore richiesto ritorno -1 indicando
+        che non si può soddisfare l'emergenza.
+        Se ci sono tutte le istanze per ogni tipo d soccorritore viene restituito 1,
+        altrimenti se per uno o più soccorritori mancano una o più istanze ritorno
+        0.
     */
 
     bool mancamenti = false;
     for(int i = 0; req_number > i; i++){
+        
+        // se un determinato tipo non è presente allora non è fattibile
+
         if(requests[i].type == NULL){
             printf("non è possibile soddisfare l'emergenza: %s per mancanza di soccorritori necessari\n", desc);
             return -1;
@@ -153,10 +167,19 @@ int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, resc
         */
 
         for(int j = 0; num_twins > j; j++){
+            
+            // verifico che è presente attraverso il nome
+            
             if(strcmp(rd_twins[j]->rescuer->rescuer_type_name, requests[i].type->rescuer_type_name) == 0) counter_resc++;
+            
+            /*
+                se ci sono tutte le istanze richieste mi fermo prima
+                evitando overhead inutile
+            */
             if(counter_resc == requests[i].required_count) break;
         }
         if(counter_resc == 0) return -1;
+        // verifico se mancano una o più istanze di quel soccorritore per l'emergenza
         else if(counter_resc < requests[i].required_count){
             mancamenti = true;
         } 
@@ -184,7 +207,7 @@ void add_waiting_queue(emergency_id_t* id, waiting_queue_t*** waiting_queue, int
     
     /*
         se la coda è vuota, alloco memoria. Se non è vuota, prima di ri-allocare memoria
-        verifico che l'emergenza non sia in coda
+        verifico che l'emergenza non sia in coda attraverso l'id
     */
     
     if (*waiting_queue == NULL){
@@ -385,10 +408,11 @@ emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency, int
     }
 
     /*
-        in questo ciclo in sostanza, nell'array emergency->rescuers_dt, vado ad aggiungere più possibili
-        soccorritori necessari per ogni tipo, cosa da avere una panoramica al 100% per capire chi posso avviare
+        in questo ciclo in sostanza, nell'array emergency->rescuers_dt, vado ad aggiungere tutti i gemelli digitali di un determinato 
+        tipo richiesto per l'emergenza, Per avere una panoramica al 100% per capire chi posso avviare
         e chi no. Ad esempio, se ho [Allagamento][<int>]Pompieri: 4,5 e nel file.rescuers ho [Pompieri][10] non vado
-        ad assergnare solamente 4 istanze, ma tutte e 10 le disponibili.
+        ad assergnare solamente 4 istanze, ma tutte e 10 le disponibili, perchè magari quelle 4 istanze possono essere occupate da un'altra emergenza e,
+        nel mentre, non posso recuperare gli altri gemelli disponibili per l'emergenza
     */
     
 
