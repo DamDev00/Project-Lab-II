@@ -7,12 +7,11 @@ CLIENT_OBJ = client.o $(OBJ)
 
 all: client server
 
-
 client: $(CLIENT_OBJ)
 	$(CC) $(CFLAGS) -o client $(CLIENT_OBJ)
 
 server: $(SERVER_OBJ)
-	$(CC) $(CFLAGS) -o server $(SERVER_OBJ)
+	$(CC) $(CFLAGS) -o server $(SERVER_OBJ) -lm
 
 client.o: client.c client.h
 	$(CC) $(CFLAGS) -c client.c
@@ -29,14 +28,17 @@ debug_server.o: debug_server.c server.h
 parse_env.o: parse_env.c parse_env.h 
 	$(CC) $(CFLAGS) -c parse_env.c
 
-parse_emergency_types: parse_emergency_types.o functions.o parse_rescuers.o
-	$(CC) $(CFLAGS) -o parse_emergency_types parse_emergency_types.o parse_rescuers.o functions.o
+parse_emergency_types.o: parse_emergency_types.c parse_emergency_types.h
+	$(CC) $(CFLAGS) -c parse_emergency_types.c
 
 parse_rescuers.o: parse_rescuers.c parse_rescuers.h functions.h
 	$(CC) $(CFLAGS) -c parse_rescuers.c
 
 functions.o: functions.c functions.h
 	$(CC) $(CFLAGS) -c functions.c
+
+run: all
+	./server
 
 clean:
 	rm -f *.o client server
