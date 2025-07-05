@@ -94,6 +94,7 @@ int format_check_rescuers(char* line){
     // [<string>][<int>][<int>][<int>;<int>]
 
     // Verifico che la stringa non sia vuota
+
     if(line == NULL || !(strlen(line) > 0)) return -1;
 
     /*
@@ -266,8 +267,8 @@ int format_check_emergency(char* line){
     strncpy(rest, line+count, sizeof(rest));
 
     /*
-        creo una copia dell'array 'rest' perchè nel caso dovesse mancare ;
-        rimarrebbe uguale rest, ed uso 'copy' come supporto per non spostare 
+        creo una copia dell'array 'rest' perchè nel caso dovesse mancare ';',
+        la variabile rest rimarrebbe uguale, ed uso 'copy' come supporto per non spostare 
         il puntatore alla variabile 'rest'
     */
 
