@@ -6,13 +6,20 @@
 #include <semaphore.h>
 #include <stdbool.h>
 
+
+// parametri message queue
+
 #define MAX_SIZE 1024
 #define MAX_MSG 10
+
+// macro per gli eventi del file.log
 
 #define MESSAGE_QUEUE "message queue"
 #define EMERGENCY_STATUS "EMERGENCY_STATUS"
 #define EMERGENCY_OPERATION "EMERGENCY_OPERATION"
 #define RESCUERS_STATUS "RESCUER_STATUS"
+
+// strutture necessarie aggiuntive
 
 typedef struct {
     env_t* environment;
@@ -71,9 +78,12 @@ typedef struct {
     waiting_queue_t** waiting_queue;
 } params_control_waiting_queue_t;
 
+// variabile che determina se è operativa la message queue
+
 extern bool MESSAGE_QUEUE_ACTIVE;
 
-// RESCUER
+// funzioni dedicate ai soccorritori/gemelli
+
 int handle_rescuer(void* args);
 int rescuers_is_avalaible(rescuer_digital_twin_t** rd_twins, int num_twins, rescuer_request_t* requests, int req_number, char* desc);
 int barrier_rescuers(emergency_id_t* current ,atomic_int* count, atomic_int* tot_rescuers_required, mtx_t* mtx, cnd_t* cnd, bool is_active);
@@ -82,7 +92,8 @@ char* get_state_rescuer(rescuer_status_t status);
 void free_locks_rescuers(rescuers_t** id_locks, int count);
 int print_state_digital_rescuer(void* args);
 
-// EMERGENCY
+// funzioni dedicate alle emergenze
+
 emergency_t* set_new_emergency(params_handler_emergency_t* params_emergency, int* twins);
 emergency_id_t* add_emergency(int* id, emergency_t* emergency, emergency_id_t*** queue_emergencies);
 int start_emergency(emergency_id_t* current_emergency);
@@ -92,7 +103,7 @@ void free_emergency_avalaible(emergency_type_t* emergencies, int num);
 void free_queue_emergencies(emergency_id_t** queue_emergencies, int num);
 void print_waiting_emergencies(waiting_queue_t** queue, int len);
 
-// WAITING QUEUE
+// funzioni dedicate alle emergenze in attesa
 
 void add_waiting_queue(emergency_id_t* id, waiting_queue_t*** waiting_queue, int* waiting_queue_len);
 void remove_from_waiting_queue(emergency_id_t* emergency, waiting_queue_t*** waiting_queue, int* waiting_queue_len);
@@ -102,7 +113,7 @@ int handler_waiting_queue(void* args);
 void print_waiting_emergencies(waiting_queue_t** queue, int len);
 void free_waiting_queue(waiting_queue_t** waiting_queue, int num);
 
-// UTILS
+// altre funzioni
 
 int get_priority_limit(int priority);
 int compare(const void *a, const void *b);
