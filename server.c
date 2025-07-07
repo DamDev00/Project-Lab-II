@@ -433,7 +433,7 @@ int start_emergency(emergency_id_t* current_emergency){
     */
 
     current_emergency->in_loading = true;
-
+    
     /*
         id_locks è una struttura che serve per il corretto uso delle lock dei soccorritori
         tenendo una buona organizzazione.
@@ -603,6 +603,23 @@ int start_emergency(emergency_id_t* current_emergency){
         count_id_locks++;    
         
         if(num_request == 0){
+
+            /*
+                verifico che rimanga ancora del tempo per soddisfare l'emergenza
+            */
+
+            if((time(NULL) - emergency->time) > get_priority_limit(emergency->type->priority)){
+                printf("[EMERGENZA (%d,%s) NON SODDISFACIBILE PER CARENZA DI RISORSE]\n", current_emergency->id, emergency->type->emergency_desc);
+                /*
+                    se è presente nella coda d'attesa la elimino
+                */
+                if(current_emergency->was_in_waiting_queue){
+                    mtx_lock(&lock_operation_on_waiting_queue);
+                    remove_from_waiting_queue(current_emergency, &waiting_queue, &waiting_queue_len);
+                    mtx_unlock(&lock_operation_on_waiting_queue);
+                }
+                return thrd_success;
+            }
 
             /*
                 se il flusso entra in questa condizione significa che l'emergenza, al momento, non può
@@ -874,9 +891,11 @@ int handler_emergency(void* args){
         - 0 se esiste almeno un istanza per ogni soccorritore necessario,
            ma non tutte quelle richieste per uno o più soccorritori
            (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][2][...][...;...])
+          
 
         - 1 se esistono tutte le istanze richieste per ogni tipo di soccorritore
             (ESEMPIO: [Incedio][...]Pompieri:4,2 - [Pompieri][4][...][...;...])
+            
     */
     
     int rescuers_avalaible = rescuers_is_avalaible(twins, num_twins, emergency->type->rescuers, emergency->type->rescuers_req_number, emergency->type->emergency_desc);
