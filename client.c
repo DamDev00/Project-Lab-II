@@ -59,7 +59,7 @@ void stop_message_queue(){
     strcpy(msg->emergency_name, stop);
     msg->x = -1;
     msg->y = -1;
-    msg->delay = 0;
+    msg->timestamp = 0;
     if(send_queue(ENVIRONMENT_FILENAME, msg) != 1){
         printf("[ERRORE NELL'INVIO DI 'STOP']\n");
         exit(0);
@@ -85,7 +85,7 @@ int send_with_parameters(char** parameters){
     strcpy(msg->emergency_name, parameters[1]);
     msg->x = atoi(parameters[2]);
     msg->y = atoi(parameters[3]);
-    msg->delay = time(NULL) + atoi(parameters[4]);
+    msg->timestamp = time(NULL) + atoi(parameters[4]);
 
     return send_queue(ENVIRONMENT_FILENAME, msg);
 }
@@ -153,7 +153,7 @@ int send_with_file(char* file_emergency){
                 case 1: strcpy(msg->emergency_name, t); break;
                 case 2: msg->x = atoi(t); break;
                 case 3: msg->y = atoi(t); break;
-                case 4: msg->delay = time(NULL) + atoi(t); break;
+                case 4: msg->timestamp = time(NULL) + atoi(t); break;
             }
         }
 
@@ -190,7 +190,7 @@ int main(int argc, char** argv){
         */
 
         env_t* env = parser_env(ENVIRONMENT_FILENAME);
-
+    
         /*
             con digits capisco di quanto devo far grande l'array di caratteri
             in base alle coordinate
