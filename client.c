@@ -85,6 +85,7 @@ int send_with_parameters(char** parameters){
     strcpy(msg->emergency_name, parameters[1]);
     msg->x = atoi(parameters[2]);
     msg->y = atoi(parameters[3]);
+    // aggiungo al tempo corrente il ritardo inserito 
     msg->timestamp = time(NULL) + atoi(parameters[4]);
 
     return send_queue(ENVIRONMENT_FILENAME, msg);
@@ -153,6 +154,7 @@ int send_with_file(char* file_emergency){
                 case 1: strcpy(msg->emergency_name, t); break;
                 case 2: msg->x = atoi(t); break;
                 case 3: msg->y = atoi(t); break;
+		// aggiungo al tempo corrente il ritardo inserito
                 case 4: msg->timestamp = time(NULL) + atoi(t); break;
             }
         }
