@@ -124,7 +124,6 @@ int control_waiting_queue(void* args){
 int handler_waiting_queue(void* args){
 
     printf("[HANDLER WAITING QUEUE ATTIVATA]\n");
-    int res = 0;
     int index_current = 0;
 
     /*
@@ -176,10 +175,10 @@ int handler_waiting_queue(void* args){
             printf("[PRELEVATA DALLA CODA D'ATTESA (%d,%s)]\n", e->id, e->emergency->type->emergency_desc);
             
             // se non è in caricamento prova ad avviarla
-            if(!e->in_loading) res = start_emergency(e);
+            if(!e->in_loading) start_emergency(e);
         } else mtx_unlock(&lock_operation_on_waiting_queue);
         mtx_lock(&lock_operation_on_waiting_queue);
-        if(/*((res == thrd_success || res == -2) || res == -1 || res == 0) && */waiting_queue_len > 0){
+        if(waiting_queue_len > 0){
             int val;
             sem_getvalue(&sem_waiting_queue, &val);
             
@@ -1093,7 +1092,7 @@ int handler_queue_emergency(void* args){
             riporto sul file.log che l'emergenza si può soddisfare
         */
 
-        snprintf(message, LENGTH_LINE, "[%s (%d,%d) %ld]", request->emergency_name, request->x, request->y, request->delay);
+        snprintf(message, LENGTH_LINE, "[%s (%d,%d) %ld]", request->emergency_name, request->x, request->y, request->timestamp);
         write_log_file(time(NULL), request->emergency_name, MESSAGE_QUEUE, message);
 
         /*
@@ -1113,7 +1112,7 @@ int handler_queue_emergency(void* args){
         params_handler_emergency->x = request->x;
         params_handler_emergency->y = request->y;
         params_handler_emergency->params = params;
-        params_handler_emergency->timestamp = request->delay;
+        params_handler_emergency->timestamp = request->timestamp;
         
         thrd_t thread_handler_emergency;
 
