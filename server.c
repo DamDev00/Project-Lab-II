@@ -95,7 +95,7 @@ int control_waiting_queue(void* args){
                     strcpy(curr_twin, twin->rescuer->rescuer_type_name);
                     
                     // se il soccorritore non fa in tempo, la elimino dall coda d'attesa, riportando tutto sul file.log
-                    if(distance_manhattan(twin->x, current_emergency->emergency->x, twin->y, current_emergency->emergency->y, twin->rescuer->speed) > get_priority_limit(current_emergency->emergency->type->priority) - (time(NULL) - current_emergency->emergency->time)) {
+                    if(distance_manhattan(twin->x, current_emergency->emergency->x, twin->y, current_emergency->emergency->y, twin->rescuer->speed) > (get_priority_limit(current_emergency->emergency->type->priority) - (time(NULL) - current_emergency->emergency->time))) {
                         
                         // elimino l'emergenza dalla coda d'attesa cambiando lo stato
                         
@@ -762,7 +762,7 @@ int start_emergency(emergency_id_t* current_emergency){
                   eseguirla
                 */
                 
-                if(distance_manhattan(rescuers_data[id].twin->x, emergency->x, rescuers_data[id].twin->y, emergency->y, rescuers_data[id].twin->rescuer->speed) > get_priority_limit(emergency->type->priority) - (time(NULL) - emergency->time)){
+                if(distance_manhattan(rescuers_data[id].twin->x, emergency->x, rescuers_data[id].twin->y, emergency->y, rescuers_data[id].twin->rescuer->speed) > (get_priority_limit(emergency->type->priority) - (time(NULL) - emergency->time))){
                     
                     // Lascio tutti i lock dei gemelli digitali
                     
